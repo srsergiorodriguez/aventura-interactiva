@@ -96,11 +96,11 @@ import{S as Te,i as Ce,s as Oe,F as et,l as w,m as k,n as S,h,p as _,b as O,K as
   
   </style>
   <script>
-    ${r}
+    const A = ${r}
   <\/script>
   <script>
     const scenes = ${e};
-    const aventura = new Aventura(lang, options);
+    const aventura = new A(lang, options);
     aventura.setScenes(scenes).startAdventure('${t}');
   <\/script>
 </html>
