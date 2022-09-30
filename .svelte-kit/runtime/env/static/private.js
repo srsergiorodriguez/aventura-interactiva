@@ -105,7 +105,7 @@ export const npm_command = "run-script";
 export const PWD = "/Users/sergiorodriguez/Documents/GitHub/aventura-interactiva";
 
 /** @type {import('$env/static/private').npm_lifecycle_event} */
-export const npm_lifecycle_event = "dev";
+export const npm_lifecycle_event = "build";
 
 /** @type {import('$env/static/private').EDITOR} */
 export const EDITOR = "vi";
@@ -159,7 +159,7 @@ export const CONDA_PYTHON_EXE = "/Users/sergiorodriguez/miniforge3/bin/python";
 export const LOGNAME = "sergiorodriguez";
 
 /** @type {import('$env/static/private').npm_lifecycle_script} */
-export const npm_lifecycle_script = "vite dev";
+export const npm_lifecycle_script = "vite build";
 
 /** @type {import('$env/static/private').VSCODE_GIT_IPC_HANDLE} */
 export const VSCODE_GIT_IPC_HANDLE = "/var/folders/z9/2lj3fxr95md2nyndz46gtjlm0000gn/T/vscode-git-2055099e7f.sock";
@@ -187,3 +187,6 @@ export const npm_config_prefix = "/usr/local";
 
 /** @type {import('$env/static/private').COLORTERM} */
 export const COLORTERM = "truecolor";
+
+/** @type {import('$env/static/private').NODE_ENV} */
+export const NODE_ENV = "production";
