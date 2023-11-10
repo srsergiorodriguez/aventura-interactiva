@@ -1,5 +1,5 @@
 <script>
-  import { scenes } from '../stores/store.js';
+  import { scenes, rerender } from '../stores/store.js';
   import DragGui from './DragGui.svelte';
   import TopBar from './TopBar.svelte';
   import ImgUpload from './ImgUpload.svelte';
@@ -19,6 +19,7 @@
     $scenes[key][textKey] = text;
     if (imageUrl !== null) $scenes[key].image = imageUrl;
     showEditor = false;
+    $rerender = !$rerender;
   }
 </script>
 
@@ -33,15 +34,12 @@
     <h2 class="no-select">Imagen (opcional)</h2>
     <div>
       <label for="inp">Url:</label>
-      <input id="inp" type="text" bind:value={imageUrl} on:mousedown|stopPropagation/>
-    </div>
-    o
-    <div>
-      <span>Archivo:</span>
-      <ImgUpload bind:imageUrl={imageUrl}/>
+      <input id="inp" type="text" bind:value={imageUrl} on:mousedown|stopPropagation />
+      o
+      <ImgUpload bind:imageUrl/>
     </div>
   <div class="bar">
-    <button on:click={acceptEdit}>Aceptar</button>
+    <button class="gui-button" on:click={acceptEdit}>Aceptar</button>
   </div>
 </DragGui>
 
@@ -61,12 +59,10 @@
   }
 
   textarea {
-    min-height: 30px;
-    width: 100%;
-  }
-
-  .bar {
-    display: flex;
-    justify-content: right;
+    min-width: 100%;
+    min-height: 4em;
+    max-width: 700px;
+    max-height: 10em;
   }
 </style>
+

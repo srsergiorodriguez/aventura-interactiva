@@ -1,26 +1,16 @@
 export const manifest = {
 	appDir: "_app",
-	assets: new Set(["favicon.png"]),
+	appPath: "aventura-interactiva/_app",
+	assets: new Set([".DS_Store",".nojekyll","blueprint.png","favicon.png"]),
 	mimeTypes: {".png":"image/png"},
 	_: {
-		entry: {"file":"_app/immutable/start-33089e98.js","imports":["_app/immutable/start-33089e98.js","_app/immutable/chunks/index-91fd3258.js","_app/immutable/chunks/index-1c2f5156.js"],"stylesheets":[]},
+		client: {"start":"_app/immutable/entry/start.608d7f08.js","app":"_app/immutable/entry/app.ad7af29f.js","imports":["_app/immutable/entry/start.608d7f08.js","_app/immutable/chunks/index.4d86df2e.js","_app/immutable/chunks/singletons.c6b1548d.js","_app/immutable/chunks/index.9d73ec15.js","_app/immutable/entry/app.ad7af29f.js","_app/immutable/chunks/index.4d86df2e.js"],"stylesheets":[],"fonts":[]},
 		nodes: [
 			() => import('./nodes/0.js'),
-			() => import('./nodes/1.js'),
-			() => import('./nodes/2.js')
+			() => import('./nodes/1.js')
 		],
 		routes: [
-			{
-				type: 'page',
-				id: "",
-				pattern: /^\/$/,
-				names: [],
-				types: [],
-				path: "/",
-				shadow: null,
-				a: [0,2],
-				b: [1]
-			}
+			
 		],
 		matchers: async () => {
 			

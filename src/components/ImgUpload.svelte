@@ -4,38 +4,40 @@
   let input;
   let image;
 
-  let showImage = false;
-
-  function onChange() {
+  function loadImage() {
     const file = input.files[0];
-		
     if (file) {
-			showImage = true;
       const reader = new FileReader();
       reader.addEventListener("load", function () {
-        imageUrl = reader.result;
         image.setAttribute("src", reader.result);
+        imageUrl = reader.result;
       });
       reader.readAsDataURL(file);
-			return
     } 
-		showImage = false; 
   }
 </script>
 
 
-<input type="file" bind:this={input} on:change={onChange}/>
+<input type="file" id="load-image" bind:this={input} on:change={loadImage} hidden/>
+<label class="gui-button" for="load-image">Cargar archivo</label>
 <div class="image-preview-container" id="image-preview-container">
-  {#if showImage}
-    <img src="" alt="Preview" class="img-preview" bind:this={image}>
-  {/if}
+  <img src={imageUrl} alt="Preview" class={`img-preview ${imageUrl ? "" : "hide"}`} bind:this={image}>
 </div>
 
 <style>
+  .hide {
+    display: none;
+  }
+
   .image-preview-container {
     max-width: 150px;
     max-height: 300px;
     margin: 10px auto;
+  }
+
+  label {
+    padding: 0.2em;
+    font-size: 14px;
   }
 
   .img-preview {

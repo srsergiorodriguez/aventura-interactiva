@@ -1,5 +1,5 @@
 <script>
-  import { scenes } from '../stores/store.js';
+  import { scenes, rerender } from '../stores/store.js';
   import DragGui from './DragGui.svelte';
   import TopBar from './TopBar.svelte';
   import { getImgKey } from '../stores/helpers.js';
@@ -81,6 +81,7 @@
     $scenes[key].areas.push(area);
     $scenes = $scenes;
     showNewArea = false;
+    $rerender = !$rerender;
   }
 
 </script>
@@ -114,7 +115,7 @@
   </div>
   
   <div class="bar">
-    <button on:click={acceptEdit}>Aceptar</button>
+    <button class="gui-button" on:click={acceptEdit}>Aceptar</button>
   </div>
 </DragGui>
 
@@ -135,6 +136,7 @@
   .inputs {
     width: 100%;
     display: flex;
+    justify-content: space-between;
     gap: 5px;
   }
 
@@ -154,24 +156,18 @@
     left: 0px;
     width: 0px;
     height: 0px;
-    border: solid 1px red;
+    border: dotted 1px var(--scene-stroke);
     pointer-events: none;
-
-    color: white;
-    -webkit-text-fill-color: black;
-    -webkit-text-stroke-width: 0.3px;
-    -webkit-text-stroke-color: white;
+    background-color: #ffffff99;
+    color: black;
+    text-align: center;
   }
 
   .img-preview {
+    user-select: none;
     cursor: crosshair;
     border: solid 1px lightgray;
     max-width: 100%;
     max-height: 500px;
-  }
-
-  .bar {
-    display: flex;
-    justify-content: right;
   }
 </style>

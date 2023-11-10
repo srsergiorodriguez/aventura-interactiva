@@ -1,14 +1,7 @@
 <script>
-  import { scenes } from '../stores/store.js';
-  export let key;
+  export let scene;
   export let movingNode = false;
-
-  let scene = $scenes[key];
-  $: { scene = $scenes[key] }
-
-  if (scene.display === undefined) {
-    scene.display = {x: 0, y: 0, ops: []};
-  }
+  export let key;
 
   function drag(node) {
 		let moving = false;
@@ -27,7 +20,6 @@
 				scene.display.y += e.movementY;
         node.style.left = `${scene.display.x}px`;
 				node.style.top = `${scene.display.y}px`;
-        $scenes[key] = scene;
 			}
 		});
 		
@@ -38,13 +30,13 @@
 	}
 </script>
 
-<div use:drag class="scene-node-container">
+<div use:drag class="scene-node-container" {key}>
   <slot></slot>
 </div>
  
 <style>
   .scene-node-container {
-    padding: 10px 5px;
+    padding: 0.8em;
     border: solid 2px var(--scene-stroke);
     border-radius: 10px;
     background: var(--scene-fill);

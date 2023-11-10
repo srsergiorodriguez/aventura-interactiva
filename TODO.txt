@@ -1,0 +1,5 @@
+[X] Minimap
+[ ] Buscar escena
+[ ] Custom css algunas opciones
+[ ] Mejor sistema de áreas
+[ ] Opcion de mover nodos children, con display por debajo del nodo, con shift

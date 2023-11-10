@@ -1,148 +1,79 @@
 <script>
-  import { scenes } from '../stores/store.js';
+  import { scenes, currentWiring, rerender } from '../stores/store.js';
   import { getSceneKey, getOptionsKey, getTextKey, getImgKey } from '../stores/helpers.js';
-  import Editor from './Editor.svelte';
-  import NewOutput from './NewOutput.svelte';
-  import DragNode from './DragNode.svelte';
-  import NewArea from './NewArea.svelte';
 
-  export let key;
+  import DragNode from './DragNode.svelte';
+  import NewOption from './NewOption.svelte';
+  import NewArea from './NewArea.svelte';
+  import Editor from './Editor.svelte'
+
   export let movingNode = false;
+  export let key;
+
+  // TOGGLES
+  let showEditor = false;
+  let showNewOption = false;
+  let showNewArea = false;
+
+  function toggleEditor() { showEditor = true }
+  function toggleNewOption() { showNewOption = true }
+  function toggleNewArea() { showNewArea = true }
+  
 
   let scene = $scenes[key];
   $: { scene = $scenes[key] }
-
+  const textKey = $getTextKey(scene);
   const optionsKey = $getOptionsKey(scene);
   const imgKey = $getImgKey(scene);
-  const textKey = $getTextKey(scene);
-  let nodeOutputs;
 
-  let showEditor = false;
-  let showNewOutput = false;
-  let showNewArea = false;
+  if (scene.display === undefined) {scene.display = {x: 0, y: 0 }}
 
-  if (scene.display === undefined) { scene.display = {x: 0, y: 0, ops: [], areas: []} }
-  if (scene.display.areas === undefined) {scene.display.areas = []};
-
-  function outputTextChanged() { setOutputWidth(this) }
-
-  function setOutputWidth(node) {
+  function optionTextChanged() { setOptionWidth(this) }
+  function setOptionWidth(node) {
     const i = +node.getAttribute('i');
     node.style.width = (node.value.length * 6.1) + 'px';
     scene[optionsKey][i].btn = node.value;
-    resetOutputs();
+    $scenes = $scenes;
   }
-
-  function getPosOps(node) { getPos(node, 'ops') }
-  function getPosArea(node) { getPos(node, 'areas') }
-  function getPos(node, type) {
+  
+  function areaNameChanged() { setAreaWidth(this) }
+  function setAreaWidth(node) {
     const i = +node.getAttribute('i');
-    if (scene.display[type][i] === undefined) {
-        scene.display[type][i] = {
-        x: node.offsetLeft,
-        y: node.offsetTop,
-        rewiring: false
-      }
-    } else {
-      Object.assign(scene.display[type][i], {
-        x: node.offsetLeft,
-        y: node.offsetTop
-      })
-    }
-    $scenes[key] = scene;
+    node.style.width = (node.value.length * 6.1) + 'px';
+    scene.areas[i].name = node.value;
+    $scenes = $scenes;
   }
 
-  function resetOutputs() {
-    if (nodeOutputs === undefined) return
-    const outputs = nodeOutputs.getElementsByClassName('output');
-    for (let o of outputs) { getPos(o, o.getAttribute("type")) }
-  }
+  // OUTPUT
 
-  function resetWirings() {
-    const keys = Object.keys($scenes);
-    for (let k of keys) {
-      const s = $scenes[k];
-      const optionsKey = $getOptionsKey(s);
-      for (let i = 0; i < s.display.ops.length; i++) {
-        const sceneKey = $getSceneKey(s[optionsKey][i]);
-        if (s.display.ops[i].rewiring) {
-          s.display.ops[i].rewiring = false;
-          s[optionsKey][i][sceneKey] = s.display.ops[i].prevWiring;
-        }
-      }
-      for (let i = 0; i < s.display.areas.length; i++) {
-        const sceneKey = $getSceneKey(s.areas[i]);
-        if (s.display.areas[i].rewiring) {
-          s.display.areas[i].rewiring = false;
-          s.areas[i][sceneKey] = s.display.areas[i].prevWiring;
-        }
-      }
-
-      $scenes[k] = s;
-    }
-  }
-
-  function dragOutput(node) {
+  function clickOutput(e) {
+    const node = e.target;
     const i = +node.getAttribute('i');
     const type = node.getAttribute('type');
-    const k = type === 'ops' ? optionsKey : 'areas';
-    node.addEventListener('click', () => {
-      resetWirings();
-      const sceneKey = $getSceneKey(scene[k][i]);
-      if (!scene.display[type][i].rewiring) {
-        scene.display[type][i].prevWiring = scene[k][i][sceneKey];
-        scene.display[type][i].rewiring = true;
-        scene[k][i][sceneKey] = undefined;
-      }
-		});
-  }
-
-  function handleInputClick() {
-    const keys = Object.keys($scenes);
-    let output;
-    let type;
-    for (let k of keys) {
-      const s = $scenes[k];
-      for (let i = 0; i < s.display.ops.length; i++) {
-        const op = s.display.ops[i];
-        if (op.rewiring) {
-          op.rewiring = false;
-          output = {scene: s, i};
-          type = "ops";
-        }
-      }
-
-      for (let i = 0; i < s.display.areas.length; i++) {
-        const a = s.display.areas[i];
-        if (a.rewiring) {
-          a.rewiring = false;
-          output = {scene: s, i};
-          type = "areas";
-        }
+    if ($currentWiring !== undefined) {
+      if ($currentWiring.key === key && $currentWiring.i === i && $currentWiring.type === type) {
+        $currentWiring = undefined
+        const options = type === 'ops' ? optionsKey : 'areas';
+        const sceneKey = $getSceneKey(scene[options][i]);
+        scene[options][i][sceneKey] = undefined;
+        return
       }
     }
-    if (output === undefined) return
-    const optionsKey = $getOptionsKey(output.scene);
-    const k = type === 'ops' ? optionsKey : 'areas';
-    const sceneKey = $getSceneKey(output.scene[k][output.i]);
-    output.scene[k][output.i][sceneKey] = key;
+    $currentWiring = {key, i, type};
   }
 
-  function removeOption() {
-    if (scene[optionsKey] !== undefined) {
-      scene[optionsKey].pop();
-      scene.display.ops.pop();
-      $scenes = $scenes;
-    }
+  // INPUT
+
+  function clickInput() {
+    if ($currentWiring === undefined) return
+    const outputScene = $scenes[$currentWiring.key];
+    const outputOptions = $currentWiring.type === 'ops' ? $getOptionsKey(outputScene) : 'areas';
+    const sceneKey = $getSceneKey(outputScene[outputOptions][$currentWiring.i]);
+    outputScene[outputOptions][$currentWiring.i][sceneKey] = key;
+    $currentWiring = undefined;
   }
 
-  function removeArea() {
-    if (scene.areas !== undefined) {
-      scene.areas.pop();
-      scene.display.areas.pop();
-      $scenes = $scenes;
-    }
-  }
+  // REMOVE
 
   function removeNode() {
     for (let k of Object.keys($scenes)) {
@@ -154,24 +85,58 @@
           o[sceneKey] = undefined;
         }
       }
+      if ($scenes[k].areas !== undefined) {
+        for (let o of $scenes[k].areas) {
+          const sceneKey = $getSceneKey(o);
+          if (o[sceneKey] === key) {
+            o[sceneKey] = undefined;
+          }
+        }
+      }
+      
     }
     delete $scenes[key];
     $scenes = $scenes;
   }
 
-  function toggleEditor() { showEditor = true }
-  function toggleNewOutput() { showNewOutput = true }
-  function toggleNewArea() { showNewArea = true }
+  // REMOVE OPTION
+  function removeOption(e) {
+    const node = e.target;
+    const i = +node.getAttribute('i');
+    $scenes[key][optionsKey].splice(i, 1);
+    $scenes = $scenes;
+    $rerender = !$rerender;
+  }
+
+  function removeArea(e) {
+    const node = e.target;
+    const i = +node.getAttribute('i');
+    $scenes[key].areas.splice(i, 1);
+    $scenes = $scenes;
+    $rerender = !$rerender;
+  }
+
+  function removeImage() {
+    delete $scenes[key][imgKey]
+    delete $scenes[key].areas
+    $scenes = $scenes;
+    $rerender = !$rerender;
+  }
+
 </script>
 
-<DragNode {key} bind:movingNode={movingNode}>
-  <div on:mousedown|stopPropagation on:click={handleInputClick} class="connection input"></div>
+<DragNode {scene} {key} bind:movingNode={movingNode}>
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <div on:mousedown|stopPropagation on:click={clickInput} {key} class="connection input"></div>
   <h1>Escena: {key}</h1>
+
   {#if scene[imgKey] !== undefined && scene[imgKey] !== null}
     <div class="img-preview-container">
-      <img on:load={resetOutputs} src={scene[imgKey]} alt="Preview" class="img-preview">
+      <img src={scene[imgKey]} alt="Preview" class="img-preview">
+      <button class="x-button image-x-button" on:click={removeImage}>x</button>
     </div>
   {/if}
+
   <div class="p-container"><p class="text-p">{scene[textKey].length < 210 ? scene[textKey] : scene[textKey].slice(0, 210) + '...'}</p></div>
   <div class="node-btns">
     <div>
@@ -181,44 +146,55 @@
         <button on:click={removeNode}>x</button>
       </div>
     </div>
+
     <div>
       <span class="btns-name">btn</span>
       <div class="node-btns-div">
-        <button on:click={removeOption}>-</button>
-        <button on:click={toggleNewOutput}>+</button>
+        <button on:click={toggleNewOption}>+</button>
       </div>
     </div>
+
     {#if scene[imgKey] !== undefined && scene[imgKey] !== null}
       <div>
         <span class="btns-name">área</span>
         <div class="node-btns-div">
-          <button on:click={removeArea}>-</button>
           <button on:click={toggleNewArea}>+</button>
         </div>
       </div>
     {/if}
   </div>
-  <div bind:this={nodeOutputs} class="node-outputs">
-    {#each scene[optionsKey] || [] as op, i ('op'+i)}
-      <div class="output-container">
-        <input type="text" class="output-text" value={op.btn} use:setOutputWidth|once on:change={outputTextChanged} on:mousedown|stopPropagation {i}/>
-        <div use:getPosOps|once use:dragOutput type="ops" class="connection output option-connection" on:mousedown|stopPropagation {i}></div>
-      </div>
-    {/each}
-    {#each scene.areas || [] as a, i ('a'+i)}
-      <div class="output-container">
-        <span class="output-text">{a.name}</span>
-        <div use:getPosArea|once use:dragOutput type="areas" class="connection output area-connection" on:mousedown|stopPropagation {i}></div>
-      </div>
-    {/each}
-  </div>  
+  
+  {#key $rerender}
+    <div class="node-outputs">
+      {#each $scenes[key][optionsKey] || [] as op, i ('op'+i)}
+        <div class="output-container">
+          <input type="text" class="output-text" value={op.btn} use:setOptionWidth|once on:change={optionTextChanged} on:mousedown|stopPropagation {i}/>
+          <button class="x-button" on:click={removeOption} {i}>x</button>
+          <!-- svelte-ignore a11y-click-events-have-key-events -->
+          <div type="ops" {key} content={op.btn} class="connection output option-connection" on:click={clickOutput} {i} on:mousedown|stopPropagation></div>
+        </div>
+      {/each}
+
+      {#each $scenes[key].areas || [] as a, i ('a'+i)}
+        <div class="output-container">
+          <input type="text" class="output-text" value={a.name} use:setAreaWidth|once on:change={areaNameChanged} on:mousedown|stopPropagation {i}/>
+          <button class="x-button" on:click={removeArea} {i}>x</button>
+          <!-- svelte-ignore a11y-click-events-have-key-events -->
+          <div type="areas" {key} content={a.name} class="connection output area-connection" on:click={clickOutput} {i} on:mousedown|stopPropagation></div>
+        </div>
+      {/each}
+    </div>
+  {/key}
 </DragNode>
+
 {#if showEditor}
   <Editor bind:showEditor={showEditor} {key} pos={scene.display}/>
 {/if}
-{#if showNewOutput}
-  <NewOutput bind:showNewOutput={showNewOutput} {key} pos={scene.display}/>
+
+{#if showNewOption}
+  <NewOption bind:showNewOption {key} pos={scene.display}/>
 {/if}
+
 {#if showNewArea}
   <NewArea bind:showNewArea={showNewArea} {key} pos={scene.display}/>
 {/if}
@@ -228,7 +204,7 @@
     display: flex;
     justify-content: space-around;
     gap: 10px;
-    border-top: 1px black solid;
+    border-top: 1px var(--scene-stroke) solid;
   }
 
   .node-btns-div {
@@ -241,15 +217,25 @@
     text-align: left;
   }
 
-  .node-btns button {
+  .node-btns-div button {
     background: white;
     border-radius: 4px;
     border: solid 1px var(--scene-stroke);
     cursor: pointer;
   }
 
-  .node-btns button:hover {
-    background: lightgray;
+  .node-btns-div button:hover {
+    background: var(--btn-hover);
+  }
+
+  .node-btns-div button:active {
+    background: var(--btn-active);
+  }
+
+  input {
+    background: white;
+    border: none;
+    border-bottom: solid 1px var(--scene-stroke);
   }
 
   .connection {
@@ -259,6 +245,10 @@
     cursor: pointer;
     border-radius: 10px;
     background: var(--input-stroke);
+  }
+
+  .connection:hover {
+    border: solid 2px var(--drag-stroke);
   }
 
   .area-connection {
@@ -271,8 +261,8 @@
 
   .input {
     position: absolute;
-    left: 0%;
-    top: 0px;
+    left: 50%;
+    top: -5px;
   }
 
   /* OUTPUTS */
@@ -281,11 +271,13 @@
     display: flex;
     justify-content: left;
     align-items: center;
-    gap: 3px;
+    gap: 1em;
+    border-top: var(--scene-stroke) 1px solid;
+    padding-top: 0.5em;
   }
 
   .output-container {
-    padding: 1px;
+    display: flex;
   }
 
   .output-text {
@@ -301,7 +293,7 @@
   h1 {
     margin: 0px;
     padding: 0px;
-    font-size: 16px;
+    font-size: 1em;
     text-align: center;
   }
 
@@ -319,11 +311,14 @@
 
   .img-preview-container {
     max-width: 100px;
+    max-height: 200px;
+    display: flex;
     margin: auto;
   }
 
   .img-preview {
     max-width: 100%;
     pointer-events: none;
+    display: inline;
   }
 </style>

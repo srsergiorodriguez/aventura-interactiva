@@ -48,6 +48,6 @@
     border: solid 3px var(--drag-stroke);
     border-radius: 10px;
     background: var(--drag-fill);
-    z-index: 2;
+    z-index: 3;
   }
 </style>
