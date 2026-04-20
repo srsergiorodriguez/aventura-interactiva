@@ -1,5 +1,5 @@
 <script>
-  import { scenes } from '../stores/store'
+  import { scenes, options } from '../stores/store'
   import { saveJSON, saveHTML, generateInteractive } from '../stores/helpers'
   import { a } from '../stores/aventura'
 
@@ -8,7 +8,10 @@
 
   let input;
 
+  let showOptions = false;
+
   function toggleNewScene() { showNewScene = true }
+  function toggleShowOptions() {showOptions = !showOptions}
 
   function resetScenes() { $scenes = {} }
 
@@ -42,8 +45,13 @@
     if (topScene.length === 0) { alert("No hay escenas / There are no scenes"); return }
     const lib = $a.toString();
     const sce = JSON.stringify($scenes);
-    const html = $generateInteractive(lib, sce, topScene[0][0]);
+    const opts = JSON.stringify($options);
+    const html = $generateInteractive(lib, sce, topScene[0][0], opts);
     $saveHTML(html);
+  }
+
+  function setOption(key, v) {
+    $options[key] = v;
   }
 </script>
 <div class="toolbar">
@@ -54,11 +62,43 @@
     <button class="toolbar-button" on:click={exportScenes}>Exportar</button>
     <button class="toolbar-button" on:click={toggleTest}>Previsualizar</button>
     <button class="toolbar-button" on:click={saveInteractive}>Generar interactivo final</button>
+    <button class="toolbar-button" on:click={toggleShowOptions}>Opciones</button>
   </div>
   <div class="scene-toolbar subtoolbar">
     <button class="toolbar-button" on:click={toggleNewScene}>Nueva escena</button>
   </div>
 </div>
+{#if showOptions}
+<div class="toolbar">
+  <div class="scene-toolbar subtoolbar">
+    <div class="option">
+      <label for="back">Botón regresar: </label>
+      <input type="checkbox" id="back" checked={$options["backBtn"]} on:click={(e) => {setOption("backBtn", e.target.checked)}}>
+    </div>
+    <div class="option">
+      <label for="back">Botón reiniciar: </label>
+      <input type="checkbox" id="back" checked={$options["restartBtn"]} on:click={(e) => {setOption("restartBtn", e.target.checked)}}>
+    </div>
+    <div class="option">
+      <label for="speed">Intervalo texto: </label>
+      <input type="range" id="speed" min="1" max="80" value={$options["typewriterSpeed"]} on:input={(e) => {setOption("typewriterSpeed", +e.target.value)}}>
+      <span>{$options["typewriterSpeed"]}</span>
+    </div>
+    <div class="option">
+      <label for="slide">Deslizar a imagen: </label>
+      <input type="checkbox" id="slide" checked={$options["adventureSlide"]} on:click={(e) => {setOption("adventureSlide", e.target.checked)}}>
+    </div>
+    <div class="option">
+      <label for="roll">Modo rollo: </label>
+      <input type="checkbox" id="roll" checked={$options["adventureScroll"]} on:click={(e) => {setOption("adventureScroll", e.target.checked)}}>
+    </div>
+    <div class="option">
+      <label for="eval">Evaluar etiquetas HTML: </label>
+      <input type="checkbox" id="eval" checked={$options["evalTags"]} on:click={(e) => {setOption("evalTags", e.target.checked)}}>
+    </div>
+  </div>
+</div>
+{/if}
 <style>
   .toolbar { 
     margin: 0.2em 0em;
@@ -68,7 +108,21 @@
 
   .subtoolbar {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.1em;
+  }
+
+  .option {
+    display: flex;
+    padding: 0.4em;
+    border: solid 1px;
+    border-radius: 5px;
+    align-items: center;
+  }
+
+  input, label {
+    font-family: var(--main-font);
+    font-size: 0.9em;
   }
 
   .toolbar-button {

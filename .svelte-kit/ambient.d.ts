@@ -26,7 +26,6 @@
  * ```
  */
 declare module '$env/static/private' {
-	export const MANPATH: string;
 	export const TERM_PROGRAM: string;
 	export const NODE: string;
 	export const INIT_CWD: string;
@@ -34,7 +33,6 @@ declare module '$env/static/private' {
 	export const TERM: string;
 	export const TMPDIR: string;
 	export const HOMEBREW_REPOSITORY: string;
-	export const npm_config_metrics_registry: string;
 	export const CONDA_SHLVL: string;
 	export const npm_config_global_prefix: string;
 	export const TERM_PROGRAM_VERSION: string;
@@ -54,7 +52,6 @@ declare module '$env/static/private' {
 	export const npm_execpath: string;
 	export const _CE_CONDA: string;
 	export const PATH: string;
-	export const LaunchInstanceID: string;
 	export const _: string;
 	export const npm_package_json: string;
 	export const __CFBundleIdentifier: string;
@@ -70,6 +67,7 @@ declare module '$env/static/private' {
 	export const npm_package_name: string;
 	export const XPC_FLAGS: string;
 	export const VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
+	export const npm_config_npm_version: string;
 	export const npm_config_node_gyp: string;
 	export const XPC_SERVICE_NAME: string;
 	export const _CE_M: string;
@@ -90,7 +88,6 @@ declare module '$env/static/private' {
 	export const VSCODE_GIT_ASKPASS_NODE: string;
 	export const HOMEBREW_CELLAR: string;
 	export const INFOPATH: string;
-	export const SECURITYSESSIONID: string;
 	export const COLORTERM: string;
 	export const npm_config_prefix: string;
 	export const npm_node_execpath: string;
@@ -124,7 +121,6 @@ declare module '$env/static/public' {
  */
 declare module '$env/dynamic/private' {
 	export const env: {
-		MANPATH: string;
 		TERM_PROGRAM: string;
 		NODE: string;
 		INIT_CWD: string;
@@ -132,7 +128,6 @@ declare module '$env/dynamic/private' {
 		TERM: string;
 		TMPDIR: string;
 		HOMEBREW_REPOSITORY: string;
-		npm_config_metrics_registry: string;
 		CONDA_SHLVL: string;
 		npm_config_global_prefix: string;
 		TERM_PROGRAM_VERSION: string;
@@ -152,7 +147,6 @@ declare module '$env/dynamic/private' {
 		npm_execpath: string;
 		_CE_CONDA: string;
 		PATH: string;
-		LaunchInstanceID: string;
 		_: string;
 		npm_package_json: string;
 		__CFBundleIdentifier: string;
@@ -168,6 +162,7 @@ declare module '$env/dynamic/private' {
 		npm_package_name: string;
 		XPC_FLAGS: string;
 		VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
+		npm_config_npm_version: string;
 		npm_config_node_gyp: string;
 		XPC_SERVICE_NAME: string;
 		_CE_M: string;
@@ -188,7 +183,6 @@ declare module '$env/dynamic/private' {
 		VSCODE_GIT_ASKPASS_NODE: string;
 		HOMEBREW_CELLAR: string;
 		INFOPATH: string;
-		SECURITYSESSIONID: string;
 		COLORTERM: string;
 		npm_config_prefix: string;
 		npm_node_execpath: string;

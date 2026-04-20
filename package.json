@@ -1,6 +1,6 @@
 {
-	"name": "portafolio",
-	"version": "0.0.1",
+	"name": "aventura_interactiva",
+	"version": "0.1.0",
 	"private": true,
 	"scripts": {
 		"dev": "vite dev",

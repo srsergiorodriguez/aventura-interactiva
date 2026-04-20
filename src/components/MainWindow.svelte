@@ -4,7 +4,7 @@
   import DragGui from './DragGui.svelte';
   import TopBar from './TopBar.svelte';
 
-  import { scenes } from '../stores/store'
+  import { scenes, options } from '../stores/store'
   import { a } from '../stores/aventura'
  
   let showNewScene = false;
@@ -12,16 +12,16 @@
   let testPos = {x: 40, y: 40};
 
   function testStory() {
-    console.log($scenes);
+    // console.log($scenes);
+    // console.log($options);
     const prevContainer = document.getElementById('storygeneraldiv');
-    if (prevContainer) prevContainer.remove();
-    const aventura = new $a('es', {
-      adventureSlide: false,
-      typewriterSpeed: 20
-    });
     const topScene = Object.entries($scenes).sort((a, b) => a[1].display.y - b[1].display.y);
+    // $options.prevScene = topScene[0][0];
+    // $options.topScene = topScene[0][0];
+    if (prevContainer) prevContainer.remove();
+    const aventura = new $a('es', $options);
     if (topScene.length === 0) { alert("No hay escenas / There are no scenes"); return }
-    aventura.setScenes($scenes).startAdventure(topScene[0][0]);
+    aventura.setScenes(JSON.parse(JSON.stringify($scenes))).startAdventure(topScene[0][0]);
     const parent = document.getElementById('test-story-container');
     const child = document.getElementById('storygeneraldiv');
     parent.appendChild(child);

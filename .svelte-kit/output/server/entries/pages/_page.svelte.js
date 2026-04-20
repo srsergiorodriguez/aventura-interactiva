@@ -2,35 +2,82 @@ import { c as create_ssr_component, a as subscribe, b as add_attribute, v as val
 import { w as writable, r as readable } from "../../chunks/index.js";
 const rerender = writable(true);
 const currentWiring = writable(void 0);
+const options = writable({
+  typewriterSpeed: 20,
+  adventureSlide: false,
+  adventureScroll: false,
+  evalTags: false,
+  backBtn: false,
+  restartBtn: false,
+  prevScene: void 0,
+  topScene: void 0,
+  defaultCSS: true,
+  sceneCallback: function(e) {
+    if (this.prevScene === void 0)
+      this.prevScene = [];
+    const backSymbol = "<--";
+    const restartSymbol = "Reiniciar";
+    if (this.backBtn && this.prevScene.length > 0 && this.topScene !== e.key) {
+      if (this.prevScene[this.prevScene.length - 2] === e.key) {
+        this.prevScene = this.prevScene.slice(0, -2);
+      }
+      if (e.options !== void 0) {
+        const found = e.options.find((d) => d.btn === backSymbol);
+        if (found === void 0) {
+          e.options.push({ btn: backSymbol, scene: this.prevScene[this.prevScene.length - 1] });
+        } else {
+          found.scene = this.prevScene[this.prevScene.length - 1];
+        }
+      } else {
+        e.options = [];
+        e.options.push({ btn: backSymbol, scene: this.prevScene[this.prevScene.length - 1] });
+      }
+    }
+    this.prevScene.push(e.key);
+    if (this.topScene === void 0) {
+      this.topScene = e.key;
+    }
+    if (this.restartBtn && this.topScene !== void 0 && this.topScene !== e.key) {
+      if (e.options !== void 0) {
+        if (e.options.filter((d) => d.btn === restartSymbol).length < 1) {
+          e.options.push({ btn: restartSymbol, scene: this.topScene });
+        }
+      } else {
+        e.options = [];
+        e.options.push({ btn: restartSymbol, scene: this.topScene });
+      }
+    }
+  }
+});
 const scenes = writable({
   inicio: {
-    texto: "Érase una vez un círculo...",
+    text: "Érase una vez un círculo...",
     display: {
       x: 150,
       y: 90
     },
-    opciones: [
+    options: [
       {
         btn: "dejar tranquilo",
-        escena: "final1"
+        scene: "final1"
       },
       {
         btn: "aplastar",
-        escena: "final2"
+        scene: "final2"
       }
     ]
   },
   final1: {
-    texto: "Perfecto, un final redondo",
-    sinSalida: true,
+    text: "Perfecto, un final redondo",
+    deadEnd: true,
     display: {
       x: 50,
       y: 300
     }
   },
   final2: {
-    texto: "Parece que la historia formó una elipsis",
-    sinSalida: true,
+    text: "Parece que la historia formó una elipsis",
+    deadEnd: true,
     display: {
       x: 230,
       y: 300
@@ -67,7 +114,7 @@ const saveHTML = readable(
     saveFile(str, "text/plain;charset=utf-8", "index.html");
   }
 );
-const generate = function(aventura, scenes2, start) {
+const generate = function(aventura, scenes2, start, options2) {
   const style = `
   #storygeneraldiv {
     box-sizing: border-box;
@@ -161,7 +208,45 @@ const generate = function(aventura, scenes2, start) {
   </body>
   <script>
     const lang = "es";
-    const options = {typewriterSpeed: 20, defaultCSS: false};
+    const options = ${options2}
+    options.defaultCSS = false;
+    options.sceneCallback =  function(e) {
+      if (this.prevScene === undefined) this.prevScene = [];
+      const backSymbol = "<--";
+      const restartSymbol = "Reiniciar";
+      if (this.backBtn && this.prevScene.length > 0 && this.topScene !== e.key) {
+        if (this.prevScene[this.prevScene.length - 2] === e.key) {
+          this.prevScene = this.prevScene.slice(0, - 2);
+        }
+        if (e.options !== undefined) {
+          // Ya hay lista de botones
+          const found = e.options.find(d => d.btn === backSymbol);
+          if (found === undefined) {
+            e.options.push({btn: backSymbol, scene: this.prevScene[this.prevScene.length - 1]}); // Añadir un nuevo botón
+          } else {
+            // Actualizar el botón que ya existe
+            found.scene = this.prevScene[this.prevScene.length - 1];
+          }
+        } else {
+          // No hay lista de opciones, crear una nueva
+          e.options = [];
+          e.options.push({btn: backSymbol, scene: this.prevScene[this.prevScene.length - 1]});
+        }
+      }
+      this.prevScene.push(e.key);
+      
+      if (this.topScene === undefined) { this.topScene = e.key }
+      if (this.restartBtn && (this.topScene !== undefined) && this.topScene !== e.key) {
+        if (e.options !== undefined) {
+          if (e.options.filter(d => d.btn === restartSymbol).length < 1) {
+            e.options.push({btn: restartSymbol, scene: this.topScene});
+          }
+        } else {
+          e.options = [];
+          e.options.push({btn: restartSymbol, scene: this.topScene});
+        }
+      }
+    }
   <\/script>
   <style>
     ${style}
@@ -180,7 +265,7 @@ const generate = function(aventura, scenes2, start) {
 };
 const generateInteractive = readable(generate);
 class Aventura {
-  constructor(lang = "en", options) {
+  constructor(lang = "en", options2) {
     this.lang = lang === "en" || lang === "es" ? lang : "en";
     this.options = {
       typewriterSpeed: 50,
@@ -203,8 +288,8 @@ class Aventura {
       }
       // Returns the current scene
     };
-    if (options) {
-      this.options = Object.assign(this.options, this.setOptionsTranslations(options));
+    if (options2) {
+      this.options = Object.assign(this.options, this.setOptionsTranslations(options2));
     }
     this.grammarError = false;
     this.scenesError = false;
@@ -229,7 +314,7 @@ class Aventura {
     this.storyPreload = {};
   }
   // MAIN INPUT FUNCTIONS
-  setOptionsTranslations(options) {
+  setOptionsTranslations(options2) {
     const trans = {
       "velocidadMaquina": "typewriterSpeed",
       "CSSporDefecto": "defaultCSS",
@@ -248,13 +333,13 @@ class Aventura {
       "opcionesMinigif": "minigifOptions",
       "funcionEscena": "sceneCallback"
     };
-    for (let [k, v] of Object.entries(options)) {
+    for (let [k, v] of Object.entries(options2)) {
       if (trans[k] !== void 0) {
-        options[trans[k]] = v;
-        delete options[k];
+        options2[trans[k]] = v;
+        delete options2[k];
       }
     }
-    return options;
+    return options2;
   }
   setGrammar(grammar) {
     this.grammar = grammar;
@@ -659,8 +744,8 @@ class Aventura {
     btns_container.className = "storybutton-container";
     storydiv.appendChild(btns_container);
     if (scene.options || scene.opciones) {
-      const options = scene.options || scene.opciones;
-      for (let option of options) {
+      const options2 = scene.options || scene.opciones;
+      for (let option of options2) {
         const optionButton = document.createElement("button");
         optionButton.className = "storybutton";
         optionButton.textContent = option.btn;
@@ -869,8 +954,8 @@ ${c2.toUpperCase()}`;
     for (let e of Object.keys(testScenes)) {
       const scene = testScenes[e];
       if (scene.options || scene.opciones) {
-        const options = scene.options || scene.opciones;
-        const filtered = options.filter((d) => !testScenes[d.scene || d.escena]);
+        const options2 = scene.options || scene.opciones;
+        const filtered = options2.filter((d) => !testScenes[d.scene || d.escena]);
         deadEnds = [...deadEnds, ...filtered.map((d) => `${e} => ${d.btn} => ${d.scene || d.escena}`)];
       } else {
         if (scene.deadEnd || scene.sinSalida) {
@@ -975,13 +1060,13 @@ ${c2.toUpperCase()}`;
         console.error(this.lang === "es" ? "Para crear Gifs debes tener también la librería MiniGif" : "To create Gifs you must have also the MiniGif library");
         return "";
       }
-      const options = {
+      const options2 = {
         colorResolution: 7,
         dither: false,
         delay: 50
       };
-      Object.assign(options, this.minigifOptions);
-      const gif = new MiniGif(options);
+      Object.assign(options2, this.minigifOptions);
+      const gif = new MiniGif(options2);
       gif.addFrame(canvas);
       const layerWiggle = this.getLayerWiggle(layers);
       ctx.fillStyle = this.igrama.metadata.bg || "#FFFFFF";
@@ -1421,15 +1506,17 @@ const defaultStyling = `#storygeneraldiv {
 const a = readable(Aventura);
 const Toolbar_svelte_svelte_type_style_lang = "";
 const css$9 = {
-  code: ".toolbar.svelte-1wzh48a.svelte-1wzh48a{margin:0.2em 0em;display:flex;gap:4em}.subtoolbar.svelte-1wzh48a.svelte-1wzh48a{display:flex;gap:0.1em}.toolbar-button.svelte-1wzh48a.svelte-1wzh48a{font-size:0.9em;padding:0.5em;cursor:pointer;text-align:center;border:none;border-radius:5px;border:var(--project-stroke) solid 1px;font-family:var(--main-font)}.toolbar-button.svelte-1wzh48a.svelte-1wzh48a:hover{background:var(--btn-hover)}.toolbar-button.svelte-1wzh48a.svelte-1wzh48a:active{background:var(--btn-active)}.project-toolbar.svelte-1wzh48a button.svelte-1wzh48a,label.svelte-1wzh48a.svelte-1wzh48a{background:var(--project-fill-light);color:var(--project-stroke)}.scene-toolbar.svelte-1wzh48a button.svelte-1wzh48a{background:var(--scene-fill);color:var(--project-stroke)}",
+  code: ".toolbar.svelte-1ltqifr.svelte-1ltqifr{margin:0.2em 0em;display:flex;gap:4em}.subtoolbar.svelte-1ltqifr.svelte-1ltqifr{display:flex;flex-wrap:wrap;gap:0.1em}.option.svelte-1ltqifr.svelte-1ltqifr{display:flex;padding:0.4em;border:solid 1px;border-radius:5px;align-items:center}input.svelte-1ltqifr.svelte-1ltqifr,label.svelte-1ltqifr.svelte-1ltqifr{font-family:var(--main-font);font-size:0.9em}.toolbar-button.svelte-1ltqifr.svelte-1ltqifr{font-size:0.9em;padding:0.5em;cursor:pointer;text-align:center;border:none;border-radius:5px;border:var(--project-stroke) solid 1px;font-family:var(--main-font)}.toolbar-button.svelte-1ltqifr.svelte-1ltqifr:hover{background:var(--btn-hover)}.toolbar-button.svelte-1ltqifr.svelte-1ltqifr:active{background:var(--btn-active)}.project-toolbar.svelte-1ltqifr button.svelte-1ltqifr,label.svelte-1ltqifr.svelte-1ltqifr{background:var(--project-fill-light);color:var(--project-stroke)}.scene-toolbar.svelte-1ltqifr button.svelte-1ltqifr{background:var(--scene-fill);color:var(--project-stroke)}",
   map: null
 };
 const Toolbar = create_ssr_component(($$result, $$props, $$bindings, slots) => {
+  let $$unsubscribe_options;
   let $$unsubscribe_saveHTML;
   let $$unsubscribe_generateInteractive;
   let $$unsubscribe_scenes;
   let $$unsubscribe_a;
   let $$unsubscribe_saveJSON;
+  $$unsubscribe_options = subscribe(options, (value) => value);
   $$unsubscribe_saveHTML = subscribe(saveHTML, (value) => value);
   $$unsubscribe_generateInteractive = subscribe(generateInteractive, (value) => value);
   $$unsubscribe_scenes = subscribe(scenes, (value) => value);
@@ -1442,19 +1529,21 @@ const Toolbar = create_ssr_component(($$result, $$props, $$bindings, slots) => {
   if ($$props.showTest === void 0 && $$bindings.showTest && showTest !== void 0)
     $$bindings.showTest(showTest);
   $$result.css.add(css$9);
+  $$unsubscribe_options();
   $$unsubscribe_saveHTML();
   $$unsubscribe_generateInteractive();
   $$unsubscribe_scenes();
   $$unsubscribe_a();
   $$unsubscribe_saveJSON();
-  return `<div class="${"toolbar svelte-1wzh48a"}"><input type="${"file"}" id="${"load-input"}" hidden>
-  <div class="${"project-toolbar subtoolbar svelte-1wzh48a"}"><button class="${"toolbar-button svelte-1wzh48a"}">Nuevo proyecto</button>
-    <label class="${"toolbar-button svelte-1wzh48a"}" for="${"load-input"}">Importar</label>
-    <button class="${"toolbar-button svelte-1wzh48a"}">Exportar</button>
-    <button class="${"toolbar-button svelte-1wzh48a"}">Previsualizar</button>
-    <button class="${"toolbar-button svelte-1wzh48a"}">Generar interactivo final</button></div>
-  <div class="${"scene-toolbar subtoolbar svelte-1wzh48a"}"><button class="${"toolbar-button svelte-1wzh48a"}">Nueva escena</button></div>
-</div>`;
+  return `<div class="${"toolbar svelte-1ltqifr"}"><input type="${"file"}" id="${"load-input"}" hidden class="${"svelte-1ltqifr"}">
+  <div class="${"project-toolbar subtoolbar svelte-1ltqifr"}"><button class="${"toolbar-button svelte-1ltqifr"}">Nuevo proyecto</button>
+    <label class="${"toolbar-button svelte-1ltqifr"}" for="${"load-input"}">Importar</label>
+    <button class="${"toolbar-button svelte-1ltqifr"}">Exportar</button>
+    <button class="${"toolbar-button svelte-1ltqifr"}">Previsualizar</button>
+    <button class="${"toolbar-button svelte-1ltqifr"}">Generar interactivo final</button>
+    <button class="${"toolbar-button svelte-1ltqifr"}">Opciones</button></div>
+  <div class="${"scene-toolbar subtoolbar svelte-1ltqifr"}"><button class="${"toolbar-button svelte-1ltqifr"}">Nueva escena</button></div></div>
+${``}`;
 });
 const DragNode_svelte_svelte_type_style_lang = "";
 const css$8 = {
@@ -1781,8 +1870,10 @@ const css$1 = {
 };
 const MainWindow = create_ssr_component(($$result, $$props, $$bindings, slots) => {
   let $$unsubscribe_scenes;
+  let $$unsubscribe_options;
   let $$unsubscribe_a;
   $$unsubscribe_scenes = subscribe(scenes, (value) => value);
+  $$unsubscribe_options = subscribe(options, (value) => value);
   $$unsubscribe_a = subscribe(a, (value) => value);
   let showNewScene = false;
   let showTest = false;
@@ -1837,6 +1928,7 @@ const MainWindow = create_ssr_component(($$result, $$props, $$bindings, slots) =
 </div>`;
   } while (!$$settled);
   $$unsubscribe_scenes();
+  $$unsubscribe_options();
   $$unsubscribe_a();
   return $$rendered;
 });

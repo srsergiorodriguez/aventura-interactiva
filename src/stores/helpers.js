@@ -37,7 +37,7 @@ export const saveHTML = readable(
   }
 )
 
-const generate = function(aventura, scenes, start) {
+const generate = function(aventura, scenes, start, options) {
   const style = `
   #storygeneraldiv {
     box-sizing: border-box;
@@ -132,7 +132,45 @@ const generate = function(aventura, scenes, start) {
   </body>
   <script>
     const lang = "es";
-    const options = {typewriterSpeed: 20, defaultCSS: false};
+    const options = ${options}
+    options.defaultCSS = false;
+    options.sceneCallback =  function(e) {
+      if (this.prevScene === undefined) this.prevScene = [];
+      const backSymbol = "<--";
+      const restartSymbol = "Reiniciar";
+      if (this.backBtn && this.prevScene.length > 0 && this.topScene !== e.key) {
+        if (this.prevScene[this.prevScene.length - 2] === e.key) {
+          this.prevScene = this.prevScene.slice(0, - 2);
+        }
+        if (e.options !== undefined) {
+          // Ya hay lista de botones
+          const found = e.options.find(d => d.btn === backSymbol);
+          if (found === undefined) {
+            e.options.push({btn: backSymbol, scene: this.prevScene[this.prevScene.length - 1]}); // Añadir un nuevo botón
+          } else {
+            // Actualizar el botón que ya existe
+            found.scene = this.prevScene[this.prevScene.length - 1];
+          }
+        } else {
+          // No hay lista de opciones, crear una nueva
+          e.options = [];
+          e.options.push({btn: backSymbol, scene: this.prevScene[this.prevScene.length - 1]});
+        }
+      }
+      this.prevScene.push(e.key);
+      
+      if (this.topScene === undefined) { this.topScene = e.key }
+      if (this.restartBtn && (this.topScene !== undefined) && this.topScene !== e.key) {
+        if (e.options !== undefined) {
+          if (e.options.filter(d => d.btn === restartSymbol).length < 1) {
+            e.options.push({btn: restartSymbol, scene: this.topScene});
+          }
+        } else {
+          e.options = [];
+          e.options.push({btn: restartSymbol, scene: this.topScene});
+        }
+      }
+    }
   </script>
   <style>
     ${style}
