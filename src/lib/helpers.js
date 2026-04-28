@@ -5,39 +5,49 @@
  */
 export function processImageFile(file) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        let width = img.width;
-        let height = img.height;
-        const maxSize = 1920; 
+  const reader = new FileReader();
 
-        if (width > maxSize || height > maxSize) {
-          if (width > height) {
-            height = Math.round((height * maxSize) / width);
-            width = maxSize;
-          } else {
-            width = Math.round((width * maxSize) / height);
-            height = maxSize;
-          }
+  reader.onload = (e) => {
+
+    // --- GIF BYPASS ---
+    if (file.type === 'image/gif') {
+      resolve(e.target.result);
+      return;
+    }
+
+    // --- STANDARD COMPRESSION FOR STATIC IMAGES ---
+    const img = new Image();
+    img.onload = () => {
+      let width = img.width;
+      let height = img.height;
+      const maxSize = 1920; 
+
+      if (width > maxSize || height > maxSize) {
+        if (width > height) {
+          height = Math.round((height * maxSize) / width);
+          width = maxSize;
+        } else {
+          width = Math.round((width * maxSize) / height);
+          height = maxSize;
         }
+      }
 
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        resolve(canvas.toDataURL('image/webp', 0.8));
-      };
-      img.onerror = reject;
-      img.src = e.target.result;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      resolve(canvas.toDataURL('image/webp', 0.8));
     };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    
+    img.onerror = reject;
+    img.src = e.target.result;
+  };
+
+  reader.onerror = reject;
+  reader.readAsDataURL(file);
   });
 }
 
