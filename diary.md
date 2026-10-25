@@ -989,6 +989,47 @@ were not visually portable.
 
 ---
 
+## 2026-10-25 — v2.1.1: exported HTML opens directly from disk
+
+**Branch:** `main`.
+**Symptom:** double-clicking the exported `.html` did not open the story.
+
+### Investigation
+
+- Reproduced by opening the downloaded 4.2 MB file through `file://` in Chrome;
+  the old module-based export actually rendered headless, so the report could be a
+  browser-specific `file://` module restriction or the blank preload period.
+- The export used two inline `<script type="module">` blocks. There were no imports,
+  but some local-file/browser combinations block module execution.
+- The body was empty until the 4 MB document and 14 GIFs had parsed and preloaded,
+  which can look like “nothing opened”.
+
+### Fix
+
+- Embedded Aventura and MiniGif in a **classic inline IIFE** instead of module
+  scripts; stripped the Aventura default export before embedding.
+- Wrapped the boot code in a second classic IIFE to avoid global collisions.
+- Added a visible `Cargando historia… / Loading story…` status inside `#story-root`,
+  removed after `startAdventure()`, plus a `<noscript>` fallback.
+
+### Verification
+
+- Exported `Por la ventana` (4,355,635 B) and opened the downloaded file directly
+  with `file://`: title “Por la ventana”, story visible, loading status removed, no
+  console errors.
+- Preview still renders the same story; export contains no
+  `<script type="module">` and no `export { Aventura as default }`.
+- 104 tests pass; 0 check warnings; build passes.
+- Version bumped to **2.1.1** and tagged locally.
+
+### Note
+
+If double-clicking still opens a text editor or nothing at all, the OS file
+association for `.html` is wrong; use **Open With → Chrome**. The file itself now
+opens directly in Chrome from `file://`.
+
+---
+
 <!--
 Template for future entries:
 

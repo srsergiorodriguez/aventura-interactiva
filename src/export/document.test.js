@@ -23,6 +23,9 @@ describe('buildStoryDocument', () => {
     expect(html).toContain('window.Aventura = Aventura;');
     expect(html).toContain('startAdventure("a")');
     expect(html).toContain('const scenes =');
+    expect(html).toContain('id="story-loading"');
+    expect(html).not.toContain('<script type="module">');
+    expect(html).not.toContain('export { Aventura as default }');
   });
 
   it('is deterministic for the same project and sources', () => {

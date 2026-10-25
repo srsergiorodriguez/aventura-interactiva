@@ -16,13 +16,24 @@ import { fontFaceCSS, fontLicenseNotice } from '../assets/fonts/font-data.js';
 
 /**
  * MiniGif is authored as an ES module for the app but embedded as a plain class in
- * the classic part of the story module. Strip its export statement.
+ * the classic part of the story document. Strip its export statement.
  *
  * @param {string} source
  * @returns {string}
  */
 function stripMiniGifExport(source) {
   return source.replace(/\r?\nexport\s*\{\s*MiniGif\s*\};?\s*$/u, '');
+}
+
+/**
+ * The Aventura bundle is also embedded as a classic IIFE so an exported HTML file
+ * works when opened directly from disk, without depending on file:// module rules.
+ *
+ * @param {string} source
+ * @returns {string}
+ */
+function stripEngineExport(source) {
+  return source.replace(/\r?\nexport\s*\{\s*Aventura\s+as\s+default\s*\};?\s*$/u, '');
 }
 
 /**
@@ -80,6 +91,8 @@ export function buildStoryDocument(project, sources) {
     : '';
   const fontCSS = fontFaceCSS(project.presentation.typography.font);
   const fontLicense = commentSafe(fontLicenseNotice(project.presentation.typography.font));
+  const loadingLabel = compiled.lang === 'en' ? 'Loading story…' : 'Cargando historia…';
+  const engineCode = stripEngineExport(sources.engineSource);
 
   return `<!doctype html>
 <html lang="${escapeHtml(compiled.lang)}">
@@ -94,19 +107,37 @@ ${fontLicense}
 ${fontCSS}
 ${buildStoryCSS(project.presentation)}
   </style>
+  <style>
+    #story-loading {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 2rem;
+      box-sizing: border-box;
+      font: 1rem/1.4 system-ui, sans-serif;
+      background: #ffffff;
+      color: #000000;
+    }
+  </style>
 </head>
 <body>
   <main id="story-root" class="story-page" data-scroll="${String(
     Boolean(compiled.options.adventureScroll),
-  )}" data-buttons="${project.presentation.buttons.layout === 'stack' ? 'stack' : 'inline'}"></main>
+  )}" data-buttons="${project.presentation.buttons.layout === 'stack' ? 'stack' : 'inline'}">
+    <div id="story-loading" role="status" aria-live="polite">${loadingLabel}</div>
+    <noscript>This story needs JavaScript enabled. / Esta historia necesita JavaScript activado.</noscript>
+  </main>
 
-  <script type="module">
+  <script>
+(() => {
 ${miniGif}
-${sources.engineSource}
+${engineCode}
 window.Aventura = Aventura;
+})();
   </script>
 
-  <script type="module">
+  <script>
+(() => {
 const scenes = ${jsonForScript(compiled.scenes)};
 const options = ${jsonForScript(options)};
 const engine = new window.Aventura(${jsonForScript(compiled.lang)}, options);
@@ -117,6 +148,8 @@ if (options.igrama && typeof engine.setIgrama === 'function') {
   engine.setIgrama(options.igrama);
 }
 engine.setScenes(scenes).startAdventure(${jsonForScript(compiled.startSceneId)});
+document.getElementById('story-loading')?.remove();
+})();
   </script>
 </body>
 </html>
