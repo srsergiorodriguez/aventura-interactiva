@@ -229,7 +229,7 @@ Run before merging a sprint and before a release. Record the date and result in
 5. Disable network; reload the app (after first load) and open an export; both work
    with embedded fonts and no remote requests.
 6. Try a corrupted project file; the app remains usable and the error is localized.
-7. Check Chrome, Safari, and Firefox on macOS; check Safari on iPad if available.
+7. Run the release pass in Chrome. Firefox/Safari checks are deferred by the project owner; record them as not run.
 
 ## 9. Definition of done
 

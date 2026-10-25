@@ -489,7 +489,7 @@ A release candidate is ready when:
 - The MiniGif gate is complete; the studio uses the reviewed encoder and a
   compatibility fixture protects the engine igrama path.
 - Both locales are complete; no hard-coded UI strings.
-- The exported story works offline in Chrome, Firefox, and Safari.
+- The exported story works offline in Chrome; Firefox/Safari are explicitly deferred.
 - `npm run check`, `npm run test`, and `npm run build` pass.
 - `architecture.md`, `design-system.md`, `testing.md`, and `diary.md` reflect the
   shipped behavior.
