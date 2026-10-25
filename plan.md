@@ -1,7 +1,7 @@
 # Plan — Aventura Interactiva
 
-Status: S4 complete — release candidate verified on `Por la ventana` in Chrome.
-S1–S4 complete; 104 tests, 0 warnings, build passes. `main` merge remains.
+Status: S4 complete — **v2.1.0 released from `main`**. Verified on `Por la ventana`
+in Chrome; 104 tests, 0 warnings, build passes.
 
 S3 verification: 104 tests; preview/export still byte-identical.
 Import/remount race fixed after S3: New Project → open a 27-scene file now shows
@@ -471,7 +471,7 @@ S2 is complete when:
       original 27-scene project.
 - [x] Mobile 390px: no horizontal overflow; sidebar 302px.
 - [x] Safari/Firefox explicitly deferred by the owner; reference folder deleted.
-- [ ] Commit `agent-dev` and merge to `main`.
+- [x] Commit `agent-dev`, fast-forward `main`, and tag **v2.1.0**.
 
 ### Notes
 

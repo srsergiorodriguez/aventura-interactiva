@@ -984,7 +984,8 @@ were not visually portable.
 - `motivomotivoForReference/` deleted.
 - Safari/Firefox testing deferred by the owner.
 
-- Release candidate is `2.1.0`; `agent-dev` is ready to merge to `main`.
+- Release candidate is `2.1.0`; committed on `agent-dev`, fast-forwarded to `main`,
+  and tagged **v2.1.0** locally.
 
 ---
 

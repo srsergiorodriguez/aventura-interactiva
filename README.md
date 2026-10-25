@@ -56,4 +56,5 @@ A project file contains `format`, `version`, `meta`, `story`, `scenes`,
 drawing sources live beside their rendered GIFs in the project file; HTML exports
 contain only the GIF.
 
-`agent-dev` is the integration branch. `main` is release-only.
+Released as **v2.1.0** from `main`. `agent-dev` remains the integration branch for
+future work.
