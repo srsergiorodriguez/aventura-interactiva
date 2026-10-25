@@ -36,6 +36,27 @@ class MiniGif {
     this.addFrame(img);
   }
 
+  /**
+   * Add an RGBA frame directly, without a canvas or DOM. This is the drawing
+   * studio's path: frames are generated as pixel buffers and stay deterministic.
+   */
+  addFramePixels(pixels, width, height) {
+    if (!(pixels instanceof Uint8ClampedArray) && !(pixels instanceof Uint8Array)) {
+      throw new Error('MiniGif: addFramePixels expects RGBA pixel data');
+    }
+    if (pixels.length !== width * height * 4) {
+      throw new Error('MiniGif: frame dimensions do not match its pixel data');
+    }
+    if (this.width === undefined || this.height === undefined) {
+      this.width = width;
+      this.height = height;
+    } else if (this.width !== width || this.height !== height) {
+      throw new Error('MiniGif: all frames must have the same dimensions');
+    }
+    this.framesPixels.push(pixels);
+    return pixels;
+  }
+
   addFrame(frame) {
     let canvas;
     let context;
@@ -74,9 +95,10 @@ class MiniGif {
     if (this.framesPixels.length === 0) {console.error('Minigif: there are no images to produce the gif'); return}
     
     const nrPixels = this.framesPixels[0].length;
-    this.allPixels = new Uint8Array(this.framesPixels.length * nrPixels);
-    for (let i = 0; i < this.framesPixels.length; i++) {
-      this.allPixels.set(this.framesPixels[i], i * nrPixels);
+    for (const frame of this.framesPixels) {
+      if (frame.length !== nrPixels) {
+        throw new Error('MiniGif: all frames must have the same dimensions');
+      }
     }
 
     // Prepare Palette
@@ -94,11 +116,11 @@ class MiniGif {
     } else {
       // Auto-generate palette
       const pixelCount = this.framesPixels[0].length;
-      const allPixels = new Uint8Array(this.framesPixels.length * pixelCount);
+      this.allPixels = new Uint8Array(this.framesPixels.length * pixelCount);
       for (let i = 0; i < this.framesPixels.length; i++) {
-        allPixels.set(this.framesPixels[i], i * pixelCount);
+        this.allPixels.set(this.framesPixels[i], i * pixelCount);
       }
-      colors = this.medianCutColors(allPixels);
+      colors = this.medianCutColors(this.allPixels);
     }
 
     // Pad the Global Color Table to power of 2
@@ -109,12 +131,12 @@ class MiniGif {
       }
     });
     
-    // const codeTableData = this.getCodeTable(colors);
+    this.exactColorMemo = new Map();
     this.quantizeFunction = this.dither ? this.errorDiffusionDither : this.simpleQuantize;
 
     for (let i = 0; i < this.framesPixels.length; i++) {
       const indexStream = this.quantizeFunction(this.framesPixels[i], this.globalColorTable);
-      const codeStream = this.getCodeStream(indexStream, colors);
+      const codeStream = this.getCodeStream(indexStream);
       this.framesImageData[i] = this.getImageData(codeStream);
     }
 
@@ -126,11 +148,13 @@ class MiniGif {
     return new Uint8Array(colors.flat());
   }
 
-getCodeStream(indexStream, colors) {
-    const CCindex = colors.length;
-    const EOIindex = colors.length + 1;
-
+getCodeStream(indexStream) {
     const minimumCodeSize = Math.max(2, this.colorResolution + 1);
+    // GIF clear/EOI codes live above the *padded* color table, not above the
+    // number of supplied palette entries. With 5 colors the table is padded to 8,
+    // so clear=8 and EOI=9 (not 5/6).
+    const CCindex = 1 << minimumCodeSize;
+    const EOIindex = CCindex + 1;
     let lastCodeSize;
     let streamStart = 0;
 
@@ -450,7 +474,28 @@ getCodeStream(indexStream, colors) {
     const mask = 0b11110000;
     let cursor = 0;
     for (let index = 0; index < pixels.length; index += 4) {
-      const colorIndex = this.findClosest(pixels[index + 0] & mask, pixels[index + 1] & mask, pixels[index + 2] & mask, colors);
+      let colorIndex;
+      if (this.customPalette) {
+        // Custom palettes are usually exact flat colors. Preserve full RGB
+        // precision and memoize exact matches; the old low-nibble mask can map a
+        // paint color to a neighboring palette entry.
+        const r = pixels[index];
+        const g = pixels[index + 1];
+        const b = pixels[index + 2];
+        const key = (r << 16) | (g << 8) | b;
+        colorIndex = this.exactColorMemo.get(key);
+        if (colorIndex === undefined) {
+          colorIndex = this.findClosest(r, g, b, colors);
+          this.exactColorMemo.set(key, colorIndex);
+        }
+      } else {
+        colorIndex = this.findClosest(
+          pixels[index] & mask,
+          pixels[index + 1] & mask,
+          pixels[index + 2] & mask,
+          colors,
+        );
+      }
       indexStream[cursor] = colorIndex;
       cursor++;
     }
@@ -568,3 +613,5 @@ getCodeStream(indexStream, colors) {
 
   toBin(v, pad = 0) {return (v).toString(2).padStart(pad,'0')}
 }
+
+export { MiniGif };

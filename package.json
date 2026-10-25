@@ -1,17 +1,25 @@
 {
   "name": "aventura-interactiva",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
+  "description": "A workshop-first branching-story editor with an embedded animated drawing studio.",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "svelte-check --tsconfig ./jsconfig.json",
+    "verify": "npm run check && npm run test && npm run build"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "fake-indexeddb": "^6.2.6",
     "svelte": "^5.55.4",
-    "vite": "^8.0.9"
+    "svelte-check": "^4.7.7",
+    "vite": "^8.0.9",
+    "vitest": "^5.0.5"
   },
   "dependencies": {
     "@xyflow/svelte": "^1.5.2"

@@ -1,43 +1,59 @@
-# Svelte + Vite
+# Aventura Interactiva
 
-This template should help get you started developing with Svelte in Vite.
+A workshop-first editor for small branching stories. Build scenes on a node canvas,
+write options and image areas, play the story in place, and export one
+self-contained HTML file.
 
-## Recommended IDE Setup
+## Run
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
-
-## Need an official Svelte framework?
-
-Check out [SvelteKit](https://github.com/sveltejs/kit#readme), which is also powered by Vite. Deploy anywhere with its serverless-first approach and adapt to various platforms, with out of the box support for TypeScript, SCSS, and Less, and easily-added support for mdsvex, GraphQL, PostCSS, Tailwind CSS, and more.
-
-## Technical considerations
-
-**Why use this over SvelteKit?**
-
-- It brings its own routing solution which might not be preferable for some users.
-- It is first and foremost a framework that just happens to use Vite under the hood, not a Vite app.
-
-This template contains as little as possible to get started with Vite + Svelte, while taking into account the developer experience with regards to HMR and intellisense. It demonstrates capabilities on par with the other `create-vite` templates and is a good starting point for beginners dipping their toes into a Vite + Svelte project.
-
-Should you later need the extended capabilities and extensibility provided by SvelteKit, the template has been structured similarly to SvelteKit so that it is easy to migrate.
-
-**Why include `.vscode/extensions.json`?**
-
-Other templates indirectly recommend extensions via the README, but this file allows VS Code to prompt the user to install the recommended extension upon opening the project.
-
-**Why enable `checkJs` in the JS template?**
-
-It is likely that most cases of changing variable types in runtime are likely to be accidental, rather than deliberate. This provides advanced typechecking out of the box. Should you like to take advantage of the dynamically-typed nature of JavaScript, it is trivial to change the configuration.
-
-**Why is HMR not preserving my local component state?**
-
-HMR state preservation comes with a number of gotchas! It has been disabled by default in both `svelte-hmr` and `@sveltejs/vite-plugin-svelte` due to its often surprising behavior. You can read the details [here](https://github.com/sveltejs/svelte-hmr/tree/master/packages/svelte-hmr#preservation-of-local-state).
-
-If you have state that's important to retain within a component, consider creating an external store which would not be replaced by HMR.
-
-```js
-// store.js
-// An extremely simple external store
-import { writable } from 'svelte/store'
-export default writable(0)
+```bash
+npm install
+npm run dev
 ```
+
+Open the URL printed by Vite. The production base path is
+`/aventura-interactiva/`.
+
+```bash
+npm run verify   # svelte-check + tests + production build
+```
+
+## What it includes
+
+- One native `.aventura.json` project document, with autosave to IndexedDB.
+- Scene canvas with stable option/area wiring and an explicit start scene.
+- Preview and HTML export produced by the same document builder.
+- Story presentation controls: six five-color schemes, custom scheme colors,
+  nine embedded OFL fonts, typography, layout, buttons, image frame, shape, and
+  custom CSS.
+- A constrained drawing studio: 128×128 grid, three-frame line boil at 4 fps,
+  two brushes, eraser, six sizes, ten-step undo, and 1024×1024 GIF output.
+- EN/ES editor interface. Story language is a separate project setting.
+- Self-hosted fonts and in-app font/software license notices. No runtime Google
+  Fonts requests.
+
+## Documentation
+
+- [Architecture](architecture.md)
+- [Design system](design-system.md)
+- [Testing and manual QA](testing.md)
+- [Sprint plan](plan.md)
+- [Development diary](diary.md)
+- [Vendored MiniGif notes and benchmarks](src/lib/VENDOR.md)
+- [Font/software licenses](src/assets/fonts/licenses.json)
+
+## Verification status
+
+Chrome is exercised end-to-end on the 27-scene `Por la ventana` workshop story:
+import, autosave/reload, both UI locales, preview/export byte parity, drawing, and
+mobile layout. Safari/Firefox are deferred by the project owner. The editor and
+modals collapse for narrow screens.
+
+## Project format
+
+A project file contains `format`, `version`, `meta`, `story`, `scenes`,
+`presentation`, `palette`, `runtime`, `grammar`, `igrama`, and `view`. Editable
+drawing sources live beside their rendered GIFs in the project file; HTML exports
+contain only the GIF.
+
+`agent-dev` is the integration branch. `main` is release-only.

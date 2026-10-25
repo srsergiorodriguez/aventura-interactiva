@@ -1,16 +1,17 @@
 <script>
   import { i18n } from '../lib/i18n.svelte.js';
+  import Modal from '../ui/Modal.svelte';
 
-  let { 
-    isOpen = false, 
-    nodeData, 
-    onSave, 
-    onClose 
+  let {
+    isOpen = false,
+    scene,
+    onSave,
+    onClose,
   } = $props();
 
-  let imgRef;
-  let containerRef;
-  
+  let imgRef = $state();
+  let containerRef = $state();
+
   let workingAreas = $state([]);
   let isDrawing = $state(false);
   let startX = $state(0);
@@ -19,8 +20,8 @@
   let imgLoaded = $state(false);
 
   $effect(() => {
-    if (isOpen && nodeData && nodeData.data) {
-      workingAreas = JSON.parse(JSON.stringify(nodeData.data.areas || []));
+    if (isOpen && scene) {
+      workingAreas = JSON.parse(JSON.stringify(scene.areas || []));
       imgLoaded = false;
     }
   });
@@ -48,7 +49,7 @@
   function handlePointerMove(e) {
     if (!isDrawing) return;
     const pos = getMousePos(e);
-    
+
     currentBox = {
       x: Math.min(pos.x, startX),
       y: Math.min(pos.y, startY),
@@ -60,21 +61,21 @@
   function handlePointerUp() {
     if (!isDrawing) return;
     isDrawing = false;
-    
+
     if (currentBox && currentBox.w > 10 && currentBox.h > 10) {
       const scaleX = imgRef.naturalWidth / imgRef.width;
       const scaleY = imgRef.naturalHeight / imgRef.height;
       const nextNumber = workingAreas.length + 1;
-      
+
       const scaledW = currentBox.w * scaleX;
       const scaledH = currentBox.h * scaleY;
       const scaledTopLeftX = currentBox.x * scaleX;
       const scaledTopLeftY = currentBox.y * scaleY;
-      
+
       workingAreas.push({
-        name: `area ${nextNumber}`, 
-        btn: "", 
-        tooltip: "", 
+        name: `area ${nextNumber}`,
+        btn: "",
+        tooltip: "",
         x: Math.round(scaledTopLeftX + (scaledW / 2)),
         y: Math.round(scaledTopLeftY + (scaledH / 2)),
         w: Math.round(scaledW),
@@ -97,13 +98,13 @@
   let startBounds = $state(null);
 
   function startBoxDrag(e, idx, type) {
-    e.stopPropagation(); 
+    e.stopPropagation();
     if (type === 'resize') resizingIdx = idx; else draggingIdx = idx;
-    
+
     dragStartX = e.clientX;
     dragStartY = e.clientY;
     startBounds = { ...workingAreas[idx] };
-    
+
     window.addEventListener('pointermove', handleBoxMove);
     window.addEventListener('pointerup', handleBoxUp);
   }
@@ -125,7 +126,7 @@
 
       area.x = Math.max(area.w / 2, Math.min(imgRef.naturalWidth - area.w / 2, Math.round(newCenterX)));
       area.y = Math.max(area.h / 2, Math.min(imgRef.naturalHeight - area.h / 2, Math.round(newCenterY)));
-      
+
     } else if (resizingIdx !== null) {
       const startTLX = startBounds.x - startBounds.w / 2;
       const startTLY = startBounds.y - startBounds.h / 2;
@@ -138,7 +139,7 @@
 
       area.w = Math.round(newW);
       area.h = Math.round(newH);
-      
+
       area.x = Math.round(startTLX + area.w / 2);
       area.y = Math.round(startTLY + area.h / 2);
     }
@@ -150,53 +151,101 @@
     window.removeEventListener('pointermove', handleBoxMove);
     window.removeEventListener('pointerup', handleBoxUp);
   }
+
+  function nudgeArea(event, idx) {
+    const area = workingAreas[idx];
+    if (!area) return;
+    const step = event.shiftKey ? 20 : 5;
+    let dx = 0;
+    let dy = 0;
+    if (event.key === 'ArrowLeft') dx = -step;
+    else if (event.key === 'ArrowRight') dx = step;
+    else if (event.key === 'ArrowUp') dy = -step;
+    else if (event.key === 'ArrowDown') dy = step;
+    else return;
+    event.preventDefault();
+    area.x = Math.max(area.w / 2, Math.min(imgRef.naturalWidth - area.w / 2, area.x + dx));
+    area.y = Math.max(area.h / 2, Math.min(imgRef.naturalHeight - area.h / 2, area.y + dy));
+  }
+
+  function resizeAreaWithKeys(event, idx) {
+    const area = workingAreas[idx];
+    if (!area) return;
+    const step = event.shiftKey ? 20 : 5;
+    let dw = 0;
+    let dh = 0;
+    if (event.key === 'ArrowLeft') dw = -step;
+    else if (event.key === 'ArrowRight') dw = step;
+    else if (event.key === 'ArrowUp') dh = -step;
+    else if (event.key === 'ArrowDown') dh = step;
+    else return;
+    event.preventDefault();
+    area.w = Math.max(10, area.w + dw);
+    area.h = Math.max(10, area.h + dh);
+    area.x = Math.max(area.w / 2, Math.min(imgRef.naturalWidth - area.w / 2, area.x));
+    area.y = Math.max(area.h / 2, Math.min(imgRef.naturalHeight - area.h / 2, area.y));
+  }
 </script>
 
-{#if isOpen && nodeData}
-  <div class="modal-backdrop">
-    <div class="modal-content">
-      <header class="modal-header">
-        <h3 style="margin: 0;">{i18n.t('draw_areas')} {nodeData.data.text ? nodeData.data.text.slice(0, 20) : i18n.t('no_text')}...</h3>
-        <button class="btn-close" onclick={onClose}>x</button>
-      </header>
-      
-      <div class="modal-body">
+<Modal
+  isOpen={isOpen && Boolean(scene)}
+  title={`${i18n.t('draw_areas')} ${scene?.text ? scene.text.slice(0, 20) : i18n.t('no_text')}...`}
+  size="full"
+  bodyFlush
+  onClose={onClose}
+>
+  {#snippet children()}
+    <div class="area-layout">
+
         <div class="canvas-wrapper">
-          <div 
-            class="drawing-container" 
+          <div
+            class="drawing-container"
             bind:this={containerRef}
+            role="application"
+            aria-label={i18n.t('draw_areas')}
             onpointerdown={handlePointerDown}
             onpointermove={handlePointerMove}
             onpointerup={handlePointerUp}
             onpointerleave={handlePointerUp}
           >
-            <img 
-              src={nodeData.data.image} 
-              alt="scene map" 
-              bind:this={imgRef} 
-              draggable="false" 
-              onload={() => imgLoaded = true} 
+            <img
+              src={scene.image}
+              alt={i18n.t('scene_map_alt')}
+              bind:this={imgRef}
+              draggable="false"
+              onload={() => imgLoaded = true}
             />
-            
+
             {#if imgLoaded && imgRef}
               {#each workingAreas as area, i}
                 <div class="area-box" style="
-                  left: {(area.x - area.w / 2) / (imgRef.naturalWidth / imgRef.width)}px; 
-                  top: {(area.y - area.h / 2) / (imgRef.naturalHeight / imgRef.height)}px; 
-                  width: {area.w / (imgRef.naturalWidth / imgRef.width)}px; 
+                  left: {(area.x - area.w / 2) / (imgRef.naturalWidth / imgRef.width)}px;
+                  top: {(area.y - area.h / 2) / (imgRef.naturalHeight / imgRef.height)}px;
+                  width: {area.w / (imgRef.naturalWidth / imgRef.width)}px;
                   height: {area.h / (imgRef.naturalHeight / imgRef.height)}px;
-                  pointer-events: auto; 
+                  pointer-events: auto;
                   cursor: move;"
+                  role="button"
+                  tabindex="0"
+                  aria-label={area.name}
                   onpointerdown={(e) => startBoxDrag(e, i, 'drag')}
+                  onkeydown={(e) => nudgeArea(e, i)}
                 >
                   <span class="area-label">{area.name}</span>
                   {#if area.btn}
                     <div class="area-btn-preview">{area.btn}</div>
                   {/if}
-                  <div class="resize-handle" onpointerdown={(e) => startBoxDrag(e, i, 'resize')}></div>
+                  <div
+                    class="resize-handle"
+                    role="button"
+                    tabindex="0"
+                    aria-label={i18n.t('resize_area')}
+                    onpointerdown={(e) => startBoxDrag(e, i, 'resize')}
+                    onkeydown={(e) => resizeAreaWithKeys(e, i)}
+                  ></div>
                 </div>
               {/each}
-              
+
               {#if currentBox}
                 <div class="area-box area-box-active" style="left: {currentBox.x}px; top: {currentBox.y}px; width: {currentBox.w}px; height: {currentBox.h}px;"></div>
               {/if}
@@ -205,79 +254,74 @@
         </div>
 
         <div class="sidebar-areas">
-            <h4 class="ui-section-title" style="margin-top: 0;">{i18n.t('mapped_areas')}</h4>
+            <h4 class="ui-section-title area-heading">{i18n.t('mapped_areas')}</h4>
             {#each workingAreas as area, i}
               <div class="area-edit-row">
-                <label>{i18n.t('placeholder_name')}:</label>
-                <input type="text" bind:value={area.name} />
-                
-                <label>{i18n.t('placeholder_btn')}:</label>
-                <input type="text" bind:value={area.btn} placeholder={i18n.t('leave_empty')} />
-                
-                <label>{i18n.t('placeholder_tooltip')}:</label>
-                <input type="text" bind:value={area.tooltip} />
-                
+                <label for={`area-name-${i}`}>{i18n.t('placeholder_name')}:</label>
+                <input id={`area-name-${i}`} type="text" bind:value={area.name} />
+
+                <label for={`area-btn-${i}`}>{i18n.t('placeholder_btn')}:</label>
+                <input id={`area-btn-${i}`} type="text" bind:value={area.btn} placeholder={i18n.t('leave_empty')} />
+
+                <label for={`area-tooltip-${i}`}>{i18n.t('placeholder_tooltip')}:</label>
+                <input id={`area-tooltip-${i}`} type="text" bind:value={area.tooltip} />
+
                 <button class="btn btn-danger w-full mt-1" onclick={() => workingAreas = workingAreas.filter((_, idx) => idx !== i)}>{i18n.t('btn_remove')}</button>
               </div>
             {/each}
           {#if workingAreas.length === 0}
-            <p class="empty-state" style="font-size: 0.9rem;">{i18n.t('empty_area_msg')}</p>
+            <p class="empty-state area-empty">{i18n.t('empty_area_msg')}</p>
           {/if}
         </div>
-      </div>
-
-      <footer class="modal-footer">
-        <button class="btn btn-primary" onclick={handleSave}>{i18n.t('btn_save_areas')}</button>
-      </footer>
     </div>
-  </div>
-{/if}
+  {/snippet}
+
+  {#snippet footer()}
+    <button class="btn btn-primary" onclick={handleSave}>{i18n.t('btn_save_areas')}</button>
+  {/snippet}
+</Modal>
 
 <style>
   /* Base Layout */
-  .modal-backdrop { 
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
-    background: rgba(0, 0, 0, 0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; 
-  }
-  
-  .modal-content { 
-    background: var(--bg-color); border: var(--border-main); width: 90vw; height: 90vh; 
-    max-width: 1200px; display: flex; flex-direction: column; box-shadow: 8px 8px 0px rgba(0,0,0,1); 
-  }
-  
-  .modal-header, .modal-footer { 
-    padding: 1rem; background: var(--text-color); color: var(--bg-color); 
-    display: flex; justify-content: space-between; align-items: center; 
-  }
-  
-  .modal-body { 
-    flex-grow: 1; display: flex; overflow: hidden; 
-  }
-  
-  .canvas-wrapper { 
-    flex-grow: 1; background: #eee; padding: 1rem; overflow: auto; 
-    display: flex; align-items: center; justify-content: center; 
+  .area-layout {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
   }
 
-  .drawing-container { 
+  .canvas-wrapper {
+    flex-grow: 1; background: #eee; padding: 1rem; overflow: auto;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .drawing-container {
     position: relative; display: inline-block; cursor: crosshair; user-select: none;
-    box-shadow: 4px 4px 0px rgba(0,0,0,1); 
+    box-shadow: 4px 4px 0px rgba(0,0,0,1);
   }
 
-  .drawing-container img { 
-    max-width: 100%; max-height: 70vh; display: block; user-select: none; pointer-events: none; 
+  .drawing-container img {
+    max-width: 100%; max-height: 70vh; display: block; user-select: none; pointer-events: none;
   }
 
-  .sidebar-areas { 
-    width: 300px; border-left: var(--border-main); padding: 1rem; overflow-y: auto; background: var(--bg-color); 
+  .sidebar-areas {
+    width: 300px; border-left: var(--border-main); padding: 1rem; overflow-y: auto; background: var(--bg-color);
   }
-  
-  .area-edit-row { 
-    margin-bottom: 1rem; padding: 0.5rem; border: 1px dashed var(--text-color); 
+
+  .area-edit-row {
+    margin-bottom: 1rem; padding: 0.5rem; border: 1px dashed var(--text-color);
   }
-  
-  .area-edit-row label { 
-    font-size: 0.8rem; font-weight: bold; display: block; margin-top: 0.5rem; 
+
+  .area-edit-row label {
+    font-size: 0.8rem; font-weight: bold; display: block; margin-top: 0.5rem;
+  }
+
+  .area-heading {
+    margin-top: 0;
+  }
+
+  .area-empty {
+    font-size: 0.9rem;
   }
 
   /* Interactive Elements */
@@ -305,6 +349,12 @@
     border-color: var(--accent-color);
     z-index: 10;
     background: rgba(0, 191, 255, 0.1);
+  }
+
+  .area-box:focus-visible,
+  .resize-handle:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
   }
 
   .area-btn-preview {

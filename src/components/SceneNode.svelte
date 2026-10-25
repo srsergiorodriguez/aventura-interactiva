@@ -1,52 +1,85 @@
 <script>
   import { Handle, Position } from '@xyflow/svelte';
-  import { aventuraState } from '../state.svelte.js'; 
+  import { app, selectScene } from '../state.svelte.js';
   import { i18n } from '../lib/i18n.svelte.js';
-  
+
   let { data, id } = $props();
+
+  const scene = $derived(app.project.scenes[data.sceneId]);
+  const selected = $derived(app.selectedSceneId === id);
+  const isStart = $derived(app.project.story.startSceneId === id);
 </script>
 
-<div 
-  class="scene-node {aventuraState.selectedNodeId === id ? 'selected' : ''}" 
-  onclick={() => aventuraState.selectedNodeId = id}
+<div
+  class="scene-node {selected ? 'selected' : ''}"
+  role="button"
+  tabindex="0"
+  aria-pressed={selected}
+  aria-label={id}
+  onclick={() => selectScene(id)}
+  onkeydown={(event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      selectScene(id);
+    }
+  }}
 >
   <Handle type="target" position={Position.Left} class="brutalist-handle handle-target" />
 
   <header class="node-header">
     <strong>{id}</strong>
+    {#if isStart}
+      <span class="start-badge">{i18n.t('start_badge')}</span>
+    {/if}
   </header>
 
-  <div class="node-body">
-    {#if data.image}
-      <div class="img-preview">
-        <img src={data.image} alt="scene thumbnail" />
+  {#if scene}
+    <div class="node-body">
+      {#if scene.image}
+        <div class="img-preview">
+          <img src={scene.image} alt={i18n.t('scene_image_alt', { name: id })} />
+        </div>
+      {/if}
+      <p class="node-text">
+        {scene.text
+          ? scene.text.length > 50
+            ? scene.text.slice(0, 50) + '...'
+            : scene.text
+          : i18n.t('empty_text')}
+      </p>
+    </div>
+
+    {#if scene.options.length > 0}
+      <div class="node-outputs">
+        {#each scene.options as option (option.id)}
+          <div class="output-row">
+            <span>> {option.btn || i18n.t('empty_text')}</span>
+            <Handle
+              type="source"
+              position={Position.Right}
+              id={`opt:${option.id}`}
+              class="brutalist-handle handle-source"
+            />
+          </div>
+        {/each}
       </div>
     {/if}
-    <p class="node-text">
-      {data.text ? (data.text.length > 50 ? data.text.slice(0, 50) + '...' : data.text) : i18n.t('empty_text')}
-    </p>
-  </div>
 
-  {#if data.options && data.options.length > 0}
-    <div class="node-outputs">
-      {#each data.options as op, i}
-        <div class="output-row">
-          <span>> {op.btn}</span>
-          <Handle type="source" position={Position.Right} id={`op_${i}`} class="brutalist-handle handle-source" />
-        </div>
-      {/each}
-    </div>
-  {/if}
-
-  {#if data.areas && data.areas.length > 0}
-    <div class="node-outputs areas">
-      {#each data.areas as area, i}
-        <div class="output-row">
-          <span>[area] {area.name}</span>
-          <Handle type="source" position={Position.Right} id={`area_${i}`} class="brutalist-handle handle-source area-source" />
-        </div>
-      {/each}
-    </div>
+    {#if scene.areas.length > 0}
+      <div class="node-outputs areas">
+        {#each scene.areas as area (area.id)}
+          <div class="output-row">
+            <span>[area] {area.name || i18n.t('empty_text')}</span>
+            <Handle
+              type="source"
+              position={Position.Right}
+              id={`area:${area.id}`}
+              class="brutalist-handle handle-source area-source"
+            />
+          </div>
+        {/each}
+      </div>
+    {/if}
   {/if}
 </div>
 
@@ -55,10 +88,10 @@
     background: var(--bg-color);
     border: var(--border-main);
     width: 200px;
-    box-shadow: 4px 4px 0px rgba(0,0,0,1);
+    box-shadow: 4px 4px 0px rgba(0, 0, 0, 1);
     transition: transform 0.1s ease, box-shadow 0.1s ease, border-color 0.1s ease;
   }
-  
+
   .scene-node.selected {
     border-color: var(--accent-color);
     box-shadow: 6px 6px 0px var(--accent-color);
@@ -70,6 +103,18 @@
     color: var(--bg-color);
     padding: 4px 8px;
     font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .start-badge {
+    background: var(--accent-color);
+    color: var(--text-color);
+    font-size: 0.65rem;
+    line-height: 1;
+    padding: 2px 4px;
   }
 
   .node-body {
@@ -78,7 +123,9 @@
     border-bottom: var(--border-main);
   }
 
-  .node-text { margin: 0; }
+  .node-text {
+    margin: 0;
+  }
 
   .img-preview {
     margin-bottom: 8px;
@@ -91,7 +138,6 @@
     height: auto;
     display: block;
     border: 1px solid var(--text-color);
-    filter: grayscale(100%); 
   }
 
   .output-row {
@@ -102,8 +148,10 @@
     display: flex;
     justify-content: space-between;
   }
-  
-  .output-row:last-child { border-bottom: none; }
+
+  .output-row:last-child {
+    border-bottom: none;
+  }
 
   :global(.brutalist-handle) {
     width: 10px;
@@ -112,12 +160,17 @@
     border: var(--border-main);
     background: var(--bg-color);
   }
-  
-  :global(.handle-source) { right: -6px; }
-  :global(.area-source) { border-color: var(--accent-color); }
-  
-  :global(.handle-target) { 
-    left: -2px; 
+
+  :global(.handle-source) {
+    right: -6px;
+  }
+
+  :global(.area-source) {
+    border-color: var(--accent-color);
+  }
+
+  :global(.handle-target) {
+    left: -2px;
     top: 14px;
   }
 </style>

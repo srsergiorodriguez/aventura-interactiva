@@ -1,0 +1,39 @@
+{
+  "inicio": {
+    "text": "Start",
+    "image": "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==",
+    "options": [
+      { "btn": "Go B", "scene": "b" },
+      { "btn": "Go C", "text": "intermediate", "scene": "c" }
+    ],
+    "areas": [
+      {
+        "name": "door",
+        "btn": "Area",
+        "tooltip": "tip",
+        "text": "area text",
+        "x": 10,
+        "y": 20,
+        "w": 30,
+        "h": 40,
+        "scene": "b"
+      }
+    ],
+    "display": { "x": 100, "y": 200 },
+    "plop": true,
+    "title": "Start",
+    "customField": { "keep": true }
+  },
+  "b": {
+    "texto": "B",
+    "imagen": "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==",
+    "deadEnd": true,
+    "display": { "x": 400, "y": 200 }
+  },
+  "c": {
+    "text": "C",
+    "scene": "b",
+    "display": { "x": 400, "y": 350 },
+    "viz": { "type": "fixture" }
+  }
+}

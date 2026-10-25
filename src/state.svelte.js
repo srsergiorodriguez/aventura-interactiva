@@ -1,225 +1,618 @@
-import { i18n } from './lib/i18n.svelte';
+// @ts-check
 
-export const aventuraState = $state({
-  nodes: [],
-  edges: [],
-  selectedNodeId: null,
-  grammar: {},
-  igrama: null,
-  igramaFormat: 'png',
-  viewport: { x: 0, y: 0, zoom: 1 },
-  options: {
-    typewriterSpeed: 20,
-    adventureScroll: false,
-    adventureSlide: false, // Deprecated in UI; locked to false to prevent layout jumps
-    evalTags: false,
-    backBtn: false,
-    restartBtn: false,
-    defaultCSS: true,
-    theme: {
-      background: '#ffffff',
-      text: '#000000',
-      // Native system monospace stack for zero-dependency rendering
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-      accentBackground: '#00bfff',
-      accentText: '#000000',
-      buttonBorder: '2px solid #000000',
-      borderRadius: '0px',
-      containerBorder: 'none',
-      buttonBg: '#ffffff',
-      buttonText: '#000000',
-      buttonHoverBg: '#000000',
-      buttonHoverText: '#ffffff'
-    }
-  }
+import { DomainError } from './domain/errors.js';
+import {
+  createProject,
+  hasScene,
+  parseProject,
+  parseProjectText,
+  serializeProject,
+  touchProject,
+} from './domain/project.js';
+import {
+  addOption as addOptionToProject,
+  addScene as addSceneToProject,
+  deleteScene as deleteSceneFromProject,
+  removeOption as removeOptionFromProject,
+  setAreaTarget,
+  setOptionTarget,
+  setSceneAreas as replaceSceneAreas,
+  setSceneDisplay,
+  setSceneDrawing,
+  setSceneImage,
+  setSceneText,
+  setStartScene,
+  updateOption as updateOptionInProject,
+  updateScene,
+} from './domain/scenes.js';
+import { parseHandle, toFlowEdges, toFlowNodes } from './domain/flow.js';
+import { validateProject } from './domain/validate.js';
+import {
+  PRESENTATION_PRESETS,
+  createPresentation,
+  paletteForPreset,
+  presentationWithPalette,
+  presetIdForPalette,
+  withPresentationPreset,
+} from './domain/presentation.js';
+import { buildStoryDocument } from './export/document.js';
+import { storyFilename } from './export/escape.js';
+import { downloadFile } from './lib/helpers.js';
+import { engineSource, miniGifSource } from './lib/engine.js';
+import {
+  isAutosaveAvailable,
+  loadProject as loadAutosave,
+  saveProject as saveAutosave,
+} from './persistence/autosave.js';
+
+/** @typedef {import('./domain/project.js').Project} Project */
+
+const now = () => new Date().toISOString();
+
+export const app = $state({
+  project: createProject({ now }),
+  /** @type {string|null} */
+  selectedSceneId: null,
+  projectEpoch: 0,
+  ready: false,
+  /** @type {'idle'|'saving'|'saved'|'error'|'unavailable'} */
+  saveState: 'idle',
+  /** @type {string|null} */
+  lastSavedAt: null,
+  /** @type {string|null} */
+  lastError: null,
 });
 
+export const canvas = $state({
+  /** @type {Array<Record<string, any>>} */
+  nodes: [],
+  /** @type {Array<Record<string, any>>} */
+  edges: [],
+});
 
-// ==========================================
-// UI & CANVAS WORKSPACE HELPERS
-// ==========================================
-export function loadDefaultStory() {
-  aventuraState.nodes = [
+let saveTimer = /** @type {ReturnType<typeof setTimeout>|null} */ (null);
+let saving = false;
+let saveQueued = false;
+let visibilityBound = false;
+
+/**
+ * @returns {Project}
+ */
+function createDemoProject() {
+  let project = createProject({ title: '' });
+  let added = addSceneToProject(project, {
+    name: 'inicio',
+    position: { x: 100, y: 150 },
+  });
+  project = added.project;
+
+  added = addSceneToProject(project, {
+    name: 'tranquilo',
+    position: { x: 400, y: 150 },
+  });
+  project = added.project;
+
+  added = addSceneToProject(project, {
+    name: 'aplastar',
+    position: { x: 400, y: 250 },
+  });
+  project = added.project;
+
+  project = setSceneText(project, 'inicio', 'érase una vez un círculo...');
+  project = setSceneText(project, 'tranquilo', 'perfecto, un final redondo.');
+  project = setSceneText(
+    project,
+    'aplastar',
+    'parece que la historia dio una elipsis.',
+  );
+
+  project = addOptionToProject(project, 'inicio', {
+    btn: 'dejar tranquilo',
+    target: 'tranquilo',
+  }).project;
+  project = addOptionToProject(project, 'inicio', {
+    btn: 'aplastar',
+    target: 'aplastar',
+  }).project;
+  project = setStartScene(project, 'inicio');
+  return project;
+}
+
+export function syncFlow() {
+  canvas.nodes = toFlowNodes(app.project);
+  canvas.edges = toFlowEdges(app.project);
+}
+
+/**
+ * @param {Project} project
+ */
+function adoptProject(project) {
+  app.project = project;
+  app.selectedSceneId = null;
+  app.projectEpoch += 1;
+  syncFlow();
+}
+
+/**
+ * @param {Project} next
+ * @param {{ sync?: boolean, autosave?: boolean }} [options]
+ */
+function commit(next, options = {}) {
+  app.project = next;
+  if (options.sync) syncFlow();
+  if (options.autosave !== false) scheduleAutosave();
+}
+
+export function scheduleAutosave() {
+  if (!app.ready) return;
+  if (!isAutosaveAvailable()) {
+    app.saveState = 'unavailable';
+    return;
+  }
+  if (saveTimer) clearTimeout(saveTimer);
+  app.saveState = 'saving';
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    void saveNow();
+  }, 1000);
+}
+
+export async function saveNow() {
+  if (!isAutosaveAvailable()) {
+    app.saveState = 'unavailable';
+    return;
+  }
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  if (saving) {
+    saveQueued = true;
+    return;
+  }
+
+  saving = true;
+  const snapshot = touchProject($state.snapshot(app.project), now);
+  try {
+    await saveAutosave(snapshot);
+    app.project = { ...app.project, meta: snapshot.meta };
+    app.lastSavedAt = snapshot.meta.updatedAt;
+    app.saveState = 'saved';
+    app.lastError = null;
+  } catch (error) {
+    app.saveState = 'error';
+    app.lastError =
+      error && typeof error === 'object' && 'code' in error
+        ? String(/** @type {{ code?: unknown }} */ (error).code)
+        : 'SAVE_FAILED';
+  } finally {
+    saving = false;
+    if (saveQueued) {
+      saveQueued = false;
+      void saveNow();
+    }
+  }
+}
+
+let initPromise = /** @type {Promise<void>|null} */ (null);
+
+export function initApp() {
+  if (initPromise) return initPromise;
+  initPromise = (async () => {
+    /** @type {Project|null} */
+    let restored = null;
+    if (isAutosaveAvailable()) {
+      try {
+        const saved = await loadAutosave();
+        if (saved) restored = parseProject(saved);
+      } catch (error) {
+        app.lastError =
+          error && typeof error === 'object' && 'code' in error
+            ? String(/** @type {{ code?: unknown }} */ (error).code)
+            : 'PROJECT_OPEN_ERROR';
+      }
+    }
+
+    if (restored) {
+      adoptProject(restored);
+      app.ready = true;
+      app.saveState = 'saved';
+      app.lastSavedAt = restored.meta.updatedAt;
+    } else {
+      adoptProject(createDemoProject());
+      app.ready = true;
+      if (!isAutosaveAvailable()) {
+        app.saveState = 'unavailable';
+      } else {
+        scheduleAutosave();
+      }
+    }
+
+    if (!visibilityBound && typeof window !== 'undefined') {
+      visibilityBound = true;
+      window.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden' && app.ready) {
+          void saveNow();
+        }
+      });
+    }
+  })();
+  return initPromise;
+}
+
+/**
+ * @param {string|null} sceneId
+ */
+export function selectScene(sceneId) {
+  app.selectedSceneId = sceneId;
+}
+
+/**
+ * @param {string} name
+ * @param {{ x: number, y: number }} position
+ */
+export function addScene(name, position) {
+  const result = addSceneToProject(app.project, { name, position });
+  commit(result.project, { sync: true });
+  app.selectedSceneId = result.sceneId;
+  return result.sceneId;
+}
+
+/**
+ * @param {string} sceneId
+ * @param {string} text
+ */
+export function updateSceneText(sceneId, text) {
+  commit(setSceneText(app.project, sceneId, text));
+}
+
+/**
+ * @param {string} sceneId
+ * @param {string} btn
+ */
+export function addSceneOption(sceneId, btn) {
+  const result = addOptionToProject(app.project, sceneId, { btn });
+  commit(result.project, { sync: true });
+  return result.optionId;
+}
+
+/**
+ * @param {string} sceneId
+ * @param {string} optionId
+ * @param {string} btn
+ */
+export function updateSceneOption(sceneId, optionId, btn) {
+  commit(updateOptionInProject(app.project, sceneId, optionId, { btn }));
+}
+
+/**
+ * @param {string} sceneId
+ * @param {string} optionId
+ */
+export function removeSceneOption(sceneId, optionId) {
+  commit(removeOptionFromProject(app.project, sceneId, optionId), {
+    sync: true,
+  });
+}
+
+/**
+ * @param {string} sceneId
+ */
+export function setStartSceneId(sceneId) {
+  commit(setStartScene(app.project, sceneId));
+}
+
+/**
+ * @param {string} sceneId
+ * @param {string|null} image
+ * @param {{ clearAreas?: boolean }} [options]
+ */
+export function setSceneImageData(sceneId, image, options = {}) {
+  commit(setSceneImage(app.project, sceneId, image, options));
+}
+
+/**
+ * @param {string} sceneId
+ * @param {string} image
+ * @param {Record<string, any>} drawing
+ */
+export function setSceneDrawingData(sceneId, image, drawing) {
+  commit(setSceneDrawing(app.project, sceneId, image, drawing));
+}
+
+/**
+ * @param {string} sceneId
+ * @param {Array<Record<string, any>>} areas
+ */
+export function saveSceneAreas(sceneId, areas) {
+  commit(replaceSceneAreas(app.project, sceneId, areas), { sync: true });
+}
+
+/**
+ * @param {string} sceneId
+ * @param {Record<string, any>} patch
+ */
+export function updateSceneField(sceneId, patch) {
+  commit(updateScene(app.project, sceneId, patch));
+}
+
+/**
+ * @param {Array<Record<string, any>>} nodes
+ */
+export function moveFlowNodes(nodes) {
+  let next = app.project;
+  for (const node of nodes) {
+    if (!node?.id || !hasScene(next, node.id)) continue;
+    next = setSceneDisplay(next, node.id, node.position);
+  }
+  commit(next);
+}
+
+/**
+ * @param {{ source: string, sourceHandle?: string|null, target: string }} connection
+ */
+export function connectFlowConnection(connection) {
+  if (!connection.sourceHandle) return;
+  const parsed = parseHandle(connection.sourceHandle);
+  if (!parsed || !connection.target) return;
+
+  const next =
+    parsed.kind === 'option'
+      ? setOptionTarget(
+          app.project,
+          connection.source,
+          parsed.id,
+          connection.target,
+        )
+      : setAreaTarget(
+          app.project,
+          connection.source,
+          parsed.id,
+          connection.target,
+        );
+
+  commit(next, { sync: true });
+}
+
+/**
+ * @param {{ nodes: Array<Record<string, any>>, edges: Array<Record<string, any>> }} input
+ */
+export function deleteFlowItems({ nodes, edges }) {
+  let next = app.project;
+
+  for (const edge of edges) {
+    const parsed = parseHandle(edge.sourceHandle);
+    if (!parsed || !hasScene(next, edge.source)) continue;
+    try {
+      next =
+        parsed.kind === 'option'
+          ? setOptionTarget(next, edge.source, parsed.id, null)
+          : setAreaTarget(next, edge.source, parsed.id, null);
+    } catch {
+      // The option/area may already be gone; deleting the scene below will
+      // clear any remaining references.
+    }
+  }
+
+  for (const node of nodes) {
+    if (!hasScene(next, node.id)) continue;
+    next = deleteSceneFromProject(next, node.id).project;
+  }
+
+  if (app.selectedSceneId && !hasScene(next, app.selectedSceneId)) {
+    app.selectedSceneId = null;
+  }
+  commit(next, { sync: true });
+}
+
+/**
+ * @param {{ x: number, y: number, zoom: number }} viewport
+ */
+export function saveViewport(viewport) {
+  if (![viewport?.x, viewport?.y, viewport?.zoom].every(Number.isFinite)) return;
+  commit(
     {
-      id: 'inicio',
-      type: 'sceneNode',
+      ...app.project,
+      view: {
+        ...app.project.view,
+        viewport: { x: viewport.x, y: viewport.y, zoom: viewport.zoom },
+      },
+    },
+    { sync: false },
+  );
+}
+
+/**
+ * @param {Record<string, any>} patch
+ */
+export function updateRuntime(patch) {
+  commit(
+    {
+      ...app.project,
+      runtime: { ...app.project.runtime, ...patch },
+    },
+    { sync: false },
+  );
+}
+
+/**
+ * @param {Record<string, any>} patch
+ */
+export function updatePresentation(patch) {
+  const current = app.project.presentation;
+  const next = createPresentation({
+    ...current,
+    ...patch,
+    presetId: 'custom',
+    colors: { ...current.colors, ...(patch.colors || {}) },
+    typography: { ...current.typography, ...(patch.typography || {}) },
+    layout: { ...current.layout, ...(patch.layout || {}) },
+    buttons: { ...current.buttons, ...(patch.buttons || {}) },
+    image: { ...current.image, ...(patch.image || {}) },
+    shape: { ...current.shape, ...(patch.shape || {}) },
+  });
+  commit({ ...app.project, presentation: next }, { sync: false });
+}
+
+/**
+ * @param {string} presetId
+ */
+export function applyPresentationPreset(presetId) {
+  const preset = PRESENTATION_PRESETS[presetId];
+  if (!preset) throw new DomainError('INVALID_PRESET', { presetId });
+  const next = withPresentationPreset(app.project.presentation, presetId);
+  if (next.presetId !== presetId) return;
+  commit(
+    {
+      ...app.project,
+      presentation: next,
+      palette: { presetId, colors: paletteForPreset(presetId) },
+    },
+    { sync: false },
+  );
+}
+
+/**
+ * @param {{ title?: string, author?: string }} patch
+ */
+export function updateStoryMeta(patch) {
+  const meta = { ...app.project.meta };
+  if (typeof patch.title === 'string') meta.title = patch.title;
+  if (typeof patch.author === 'string') meta.author = patch.author;
+  commit({ ...app.project, meta }, { sync: false });
+}
+
+/**
+ * @param {string[]} colors
+ */
+export function updateProjectPalette(colors) {
+  if (!Array.isArray(colors) || colors.length !== 5) {
+    throw new DomainError('INVALID_PALETTE');
+  }
+  const normalized = colors.map((color) =>
+    typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color)
+      ? color
+      : null,
+  );
+  if (normalized.some((color) => !color)) {
+    throw new DomainError('INVALID_PALETTE');
+  }
+  const safeColors = /** @type {string[]} */ (normalized);
+  const next = presentationWithPalette(app.project.presentation, safeColors);
+  commit(
+    {
+      ...app.project,
+      presentation: next,
+      palette: {
+        ...app.project.palette,
+        presetId: presetIdForPalette(safeColors),
+        colors: safeColors,
+      },
+    },
+    { sync: false },
+  );
+}
+
+/**
+ * @param {'en'|'es'} lang
+ */
+export function updateStoryLanguage(lang) {
+  if (lang !== 'en' && lang !== 'es') {
+    throw new DomainError('INVALID_LANG', { lang });
+  }
+  commit(
+    {
+      ...app.project,
+      story: { ...app.project.story, lang },
+    },
+    { sync: false },
+  );
+}
+
+/**
+ * @param {Record<string, any>} grammar
+ */
+export function updateGrammar(grammar) {
+  commit({ ...app.project, grammar }, { sync: false });
+}
+
+/**
+ * @param {Record<string, any>|null} igrama
+ */
+export function updateIgrama(igrama) {
+  commit({ ...app.project, igrama }, { sync: false });
+}
+
+/**
+ * @param {'blank'|'demo'} [mode]
+ */
+export function newProject(mode = 'blank') {
+  if (mode === 'demo') {
+    adoptProject(createDemoProject());
+  } else {
+    const lang = app.project.story.lang;
+    const sceneName = lang === 'en' ? 'start' : 'inicio';
+    let project = createProject({ lang, title: '' });
+    const added = addSceneToProject(project, {
+      name: sceneName,
       position: { x: 100, y: 150 },
-      data: {
-        text: "érase una vez un círculo...",
-        options: [{ btn: "dejar tranquilo" }, { btn: "aplastar" }],
-        areas: []
-      }
-    },
-    {
-      id: 'tranquilo',
-      type: 'sceneNode',
-      position: { x: 400, y: 150 },
-      data: {
-        text: "perfecto, un final redondo.",
-        options: [],
-        areas: []
-      }
-    },
-    {
-      id: 'aplastar',
-      type: 'sceneNode',
-      position: { x: 400, y: 250 },
-      data: {
-        text: "parece que la historia dio una elipsis.",
-        options: [],
-        areas: []
-      }
-    }
-  ];
-
-  aventuraState.edges = [
-    {
-      id: 'e-inicio-tranquilo-op_0',
-      source: 'inicio',
-      target: 'tranquilo',
-      sourceHandle: 'op_0'
-    },
-    {
-      id: 'e-inicio-aplastar-op_1',
-      source: 'inicio',
-      target: 'aplastar',
-      sourceHandle: 'op_1'
-    }
-  ];
-}
-
-export function addScene(name) {
-  if (!name || name.trim() === '') return alert(i18n.t('must_name_scene'));
-  if (/^\d/.test(name)) return alert(i18n.t('no_number_scene_name'));
-  
-  // Sanitize input to create a safe, machine-readable ID
-  let formattedId = name.toLowerCase().replace(/\s/gi,'_').replace(/\W/,'').replace(/[;.,:{}()<>$%&!¡?¿"'/\\#@&*+-]/gi,'');
-  
-  if (aventuraState.nodes.find(n => n.id === formattedId)) {
-    return alert('a scene with that name already exists');
-  }
-
-  // Calculate viewport center to spawn the new node in the user's current field of view.
-  // Accounts for the 300px sidebar offset and the canvas's current pan/zoom coordinates.
-  const screenCenterX = (window.innerWidth - 300) / 2; 
-  const screenCenterY = window.innerHeight / 2;
-  const { x: panX, y: panY, zoom } = aventuraState.viewport;
-
-  const spawnX = (screenCenterX - panX) / zoom;
-  const spawnY = (screenCenterY - panY) / zoom;
-
-  const newNode = {
-    id: formattedId,
-    type: 'sceneNode',
-    position: { x: spawnX, y: spawnY },
-    data: { text: "", options: [], areas: [] }
-  };
-
-  aventuraState.nodes = [...aventuraState.nodes, newNode];
-}
-
-export function updateSelectedNodeData(newData) {
-  if (!aventuraState.selectedNodeId) return;
-  
-  aventuraState.nodes = aventuraState.nodes.map(node => {
-    if (node.id === aventuraState.selectedNodeId) {
-      return { ...node, data: { ...node.data, ...newData } };
-    }
-    return node;
-  });
-}
-
-
-// ==========================================
-// DATA BRIDGE: ENGINE <-> WORKSPACE
-// ==========================================
-
-/**
- * Compiles Svelte Flow Nodes & Edges back into Aventura JSON format.
- * Extracts layout coordinates and resolves visual graph edges into structural scene targets.
- */
-export function compileFlowToAventura() {
-  const story = {};
-
-  aventuraState.nodes.forEach(node => {
-    // Deep clone to prevent mutation of the active UI state during compilation
-    const sceneData = JSON.parse(JSON.stringify(node.data));
-    sceneData.display = { x: Math.round(node.position.x), y: Math.round(node.position.y) };
-
-    const outgoingEdges = aventuraState.edges.filter(e => e.source === node.id);
-
-    // Map visual edges back to their respective option or area targets
-    outgoingEdges.forEach(edge => {
-      if (!edge.sourceHandle) return;
-      
-      // sourceHandles follow the pattern: 'op_0', 'area_1'
-      const [type, indexStr] = edge.sourceHandle.split('_');
-      const index = parseInt(indexStr);
-
-      if (type === 'op' && sceneData.options[index]) {
-        sceneData.options[index].scene = edge.target;
-      } else if (type === 'area' && sceneData.areas[index]) {
-        sceneData.areas[index].scene = edge.target;
-      }
     });
-
-    story[node.id] = sceneData;
-  });
-
-  return story;
+    project = added.project;
+    adoptProject(project);
+  }
+  app.saveState = 'idle';
+  void saveNow();
 }
 
 /**
- * Parses an imported Aventura JSON file and translates it into Svelte Flow Nodes & Edges.
+ * @param {string} text
+ * @param {string} [fallbackTitle]
  */
-export function loadAventuraToFlow(aventuraJSON) {
-  const newNodes = [];
-  const newEdges = [];
+export function openProjectText(text, fallbackTitle = '') {
+  let project = parseProjectText(text);
+  if (!project.meta.title && fallbackTitle.trim()) {
+    project = {
+      ...project,
+      meta: { ...project.meta, title: fallbackTitle.trim() },
+    };
+  }
+  adoptProject(project);
+  app.saveState = 'saving';
+  void saveNow();
+  return project;
+}
 
-  for (const [key, data] of Object.entries(aventuraJSON)) {
-    // 1. Reconstruct the Scene Node
-    newNodes.push({
-      id: key,
-      type: 'sceneNode',
-      position: data.display || { x: Math.random() * 200, y: Math.random() * 200 },
-      data: {
-        text: data.text || data.texto || "",
-        image: data.image || data.imagen || null,
-        image: data.image || data.imagen,
-        options: data.options || data.opciones || [],
-        areas: data.areas || []
-      }
+export function saveProjectFile() {
+  const snapshot = touchProject($state.snapshot(app.project), now);
+  const filename = storyFilename(snapshot.meta.title).replace(
+    /\.html$/,
+    '.aventura.json',
+  );
+  downloadFile(serializeProject(snapshot), filename, 'application/json');
+  app.project = { ...app.project, meta: snapshot.meta };
+}
+
+/**
+ * @returns {string}
+ */
+export function exportStoryHTML() {
+  const validation = validateProject(app.project);
+  if (validation.errors.length > 0) {
+    throw new DomainError('EXPORT_BLOCKED', {
+      errors: validation.errors,
     });
-
-    // 2. Reconstruct edges for standard options
-    if (data.options) {
-      data.options.forEach((op, index) => {
-        if (op.scene) {
-          newEdges.push({
-            id: `e-${key}-${op.scene}-op_${index}`,
-            source: key,
-            target: op.scene,
-            sourceHandle: `op_${index}`
-          });
-        }
-      });
-    }
-
-    // 3. Reconstruct edges for image map areas
-    if (data.areas) {
-      data.areas.forEach((area, index) => {
-        if (area.scene) {
-          newEdges.push({
-            id: `e-${key}-${area.scene}-area_${index}`,
-            source: key,
-            target: area.scene,
-            sourceHandle: `area_${index}`
-          });
-        }
-      });
-    }
   }
 
-  aventuraState.nodes = newNodes;
-  aventuraState.edges = newEdges;
+  const snapshot = $state.snapshot(app.project);
+  const html = buildStoryDocument(snapshot, {
+    engineSource,
+    miniGifSource,
+  });
+  const filename = storyFilename(snapshot.meta.title);
+  downloadFile(html, filename, 'text/html');
+  return filename;
+}
+
+export function getValidation() {
+  return validateProject(app.project);
 }

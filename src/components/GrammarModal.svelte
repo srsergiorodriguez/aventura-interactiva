@@ -1,7 +1,9 @@
 <script>
-  import { aventuraState } from '../state.svelte.js';
+  import { app, updateGrammar } from '../state.svelte.js';
   import { i18n } from '../lib/i18n.svelte.js';
-  import Aventura from '../lib/aventura.esm.js';
+  import { notify } from '../ui/toast.svelte.js';
+  import { Aventura } from '../lib/engine.js';
+  import Modal from '../ui/Modal.svelte';
 
   let { isOpen = false, onClose } = $props();
 
@@ -10,8 +12,8 @@
 
   $effect(() => {
     if (isOpen) {
-      if (aventuraState.options.grammar && Object.keys(aventuraState.options.grammar).length > 0) {
-        grammarString = JSON.stringify(aventuraState.options.grammar, null, 2);
+      if (app.project.grammar && Object.keys(app.project.grammar).length > 0) {
+        grammarString = JSON.stringify(app.project.grammar, null, 2);
       } else {
         grammarString = "{\n  \"base\": [\n    \"aventura\"\n  ]\n}";
       }
@@ -39,7 +41,7 @@
         grammarString = JSON.stringify(parsed, null, 2);
         testReport = null;
       } catch (err) {
-        alert(i18n.t('invalid_json'));
+        notify(i18n.t('invalid_json'), 'error');
       }
     };
     reader.readAsText(file);
@@ -65,26 +67,25 @@
   function handleSave() {
     try {
       const parsedGrammar = parseLooseJSON(grammarString);
-      aventuraState.options.grammar = parsedGrammar;
+      updateGrammar(parsedGrammar);
       onClose();
     } catch (err) {
-      alert(i18n.t('invalid_json'));
+      notify(i18n.t('invalid_json'), 'error');
     }
   }
 </script>
 
-{#if isOpen}
-  <div class="modal-backdrop">
-    <div class="modal-content">
-      <header class="modal-header">
-        <h3 style="margin: 0;">{i18n.t('grammar_editor')}</h3>
-        <button class="btn-close" onclick={onClose}>x</button>
-      </header>
-      
-      <div class="modal-body">
-        
+<Modal
+  {isOpen}
+  title={i18n.t('grammar_editor')}
+  size="wide"
+  bodyFlush
+  onClose={onClose}
+>
+  {#snippet children()}
+    <div class="grammar-body">
         <div class="action-bar">
-          <label class="btn btn-secondary file-upload-btn" style="border-style: dashed; padding: 0.4rem 1rem; cursor: pointer;">
+          <label class="btn btn-secondary file-upload-btn grammar-file">
             {i18n.t('load_json')}
             <input type="file" accept=".json" onchange={handleFileUpload} hidden />
           </label>
@@ -93,6 +94,7 @@
 
         <textarea 
           class="grammar-textarea" 
+          aria-label={i18n.t('grammar_editor')}
           bind:value={grammarString} 
           spellcheck="false"
         ></textarea>
@@ -131,37 +133,34 @@
           </div>
         {/if}
 
-      </div>
-
-      <footer class="modal-footer">
-        <button class="btn btn-primary w-full" onclick={handleSave}>{i18n.t('save_grammar')}</button>
-      </footer>
     </div>
-  </div>
-{/if}
+  {/snippet}
+
+  {#snippet footer()}
+    <button class="btn btn-primary w-full" onclick={handleSave}>{i18n.t('save_grammar')}</button>
+  {/snippet}
+</Modal>
 
 <style>
-  .modal-backdrop { 
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
-    background: rgba(0, 0, 0, 0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; 
-  }
-  
-  .modal-content { 
-    background: var(--bg-color); border: var(--border-main); width: 90vw; height: 90vh; max-width: 800px;
-    box-shadow: 8px 8px 0px rgba(0,0,0,1); display: flex; flex-direction: column; 
-  }
-  
-  .modal-header, .modal-footer { 
-    padding: 1rem; background: var(--text-color); color: var(--bg-color); 
-    display: flex; justify-content: space-between; align-items: center; 
-  }
-  
-  .modal-body { 
-    padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; flex-grow: 1; overflow: hidden;
+
+  .grammar-body {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .action-bar {
     display: flex; justify-content: space-between;
+  }
+
+  .grammar-file {
+    border-style: dashed;
+    padding: 0.4rem 1rem;
+    cursor: pointer;
   }
 
   .grammar-textarea {

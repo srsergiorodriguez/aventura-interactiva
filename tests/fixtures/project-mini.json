@@ -1,0 +1,56 @@
+{
+  "format": "aventura-interactiva",
+  "version": 1,
+  "meta": {
+    "title": "Mini",
+    "author": "Fixture",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "story": {
+    "lang": "es",
+    "startSceneId": "a"
+  },
+  "scenes": {
+    "a": {
+      "id": "a",
+      "text": "Hola",
+      "image": null,
+      "options": [{ "id": "opt_1", "btn": "Ir", "target": "b" }],
+      "areas": [],
+      "display": { "x": 100, "y": 150 }
+    },
+    "b": {
+      "id": "b",
+      "text": "Fin",
+      "image": null,
+      "options": [],
+      "areas": [],
+      "display": { "x": 380, "y": 150 },
+      "deadEnd": true,
+      "drawing": {
+        "version": 1,
+        "width": 128,
+        "height": 128,
+        "paletteId": "tinta",
+        "strokes": [],
+        "delay": 8
+      }
+    }
+  },
+  "presentation": {
+    "presetId": "papel",
+    "typography": { "font": "book", "size": 1.25 },
+    "layout": { "maxWidth": 480 }
+  },
+  "runtime": {
+    "typewriterSpeed": 0
+  },
+  "grammar": {
+    "base": ["hola"]
+  },
+  "igrama": null,
+  "view": {
+    "viewport": { "x": 1, "y": 2, "zoom": 0.5 }
+  }
+}
