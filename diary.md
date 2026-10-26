@@ -1030,6 +1030,27 @@ opens directly in Chrome from `file://`.
 
 ---
 
+## 2026-10-26 — v2.1.2: include Aventura’s license
+
+**Branch:** `main`.
+
+- Upstream Aventura has no license header in the vendored file, so I checked the
+  repository: GitHub reports **MIT**, and `LICENSE` is MIT
+  (`Copyright (c) 2026 Sergio Rodríguez Gómez`). Its `package.json` still says
+  `ISC`; the LICENSE file and GitHub API agree on MIT, so the license file is used.
+- Added **Aventura** to the software entries in `src/assets/fonts/licenses.json`.
+  The footer **licencias** dialog now lists it with Svelte, Svelte Flow, and MiniGif.
+- Exported stories now include Aventura’s copyright, source, and full MIT text in
+  the license comment. MiniGif is included only when the igrama GIF path is used.
+- Added export coverage asserting Aventura’s copyright in the document.
+
+### Verification
+
+- 104 tests pass; 0 check warnings; build passes.
+- Version bumped to **2.1.2**; pages deployment to follow.
+
+---
+
 <!--
 Template for future entries:
 

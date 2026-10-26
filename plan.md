@@ -1,6 +1,6 @@
 # Plan — Aventura Interactiva
 
-Status: S4 complete — **v2.1.1 released from `main`**. Verified on `Por la ventana`
+Status: S4 complete — **v2.1.2 released from `main`**. Verified on `Por la ventana`
 in Chrome; 104 tests, 0 warnings, build passes.
 
 S3 verification: 104 tests; preview/export still byte-identical.
@@ -474,6 +474,8 @@ S2 is complete when:
 - [x] Commit `agent-dev`, fast-forward `main`, and tag **v2.1.0**.
 - [x] Post-release fix **v2.1.1**: exported HTML now uses classic IIFE scripts,
       with a loading fallback, so it runs when opened directly from disk.
+- [x] **v2.1.2**: add Aventura's MIT copyright to the in-app licenses and to
+      exported-story license comments.
 
 ### Notes
 

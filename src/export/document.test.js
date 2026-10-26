@@ -50,6 +50,8 @@ describe('buildStoryDocument', () => {
     expect(mono).toContain("font-family: 'Inconsolata'");
     expect(mono).toContain('data:font/woff2;base64,');
     expect(mono).toContain('SIL Open Font License 1.1');
+    expect(mono).toContain('Aventura');
+    expect(mono).toContain('Copyright (c) 2026 Sergio Rodríguez Gómez');
     expect(mono).not.toContain('fonts.googleapis.com');
 
     const typewriter = buildStoryDocument(

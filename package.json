@@ -1,7 +1,7 @@
 {
   "name": "aventura-interactiva",
   "private": true,
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "A workshop-first branching-story editor with an embedded animated drawing studio.",
   "type": "module",
   "scripts": {

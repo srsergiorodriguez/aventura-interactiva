@@ -5,6 +5,7 @@ import { DomainError } from '../domain/errors.js';
 import { escapeHtml, jsonForScript } from './escape.js';
 import { buildStoryCSS } from './presentation-css.js';
 import { fontFaceCSS, fontLicenseNotice } from '../assets/fonts/font-data.js';
+import { softwareLicenseNotice } from './software-licenses.js';
 
 /** @typedef {import('../domain/project.js').Project} Project */
 
@@ -91,6 +92,7 @@ export function buildStoryDocument(project, sources) {
     : '';
   const fontCSS = fontFaceCSS(project.presentation.typography.font);
   const fontLicense = commentSafe(fontLicenseNotice(project.presentation.typography.font));
+  const softwareLicense = commentSafe(softwareLicenseNotice({ includeMiniGif }));
   const loadingLabel = compiled.lang === 'en' ? 'Loading story…' : 'Cargando historia…';
   const engineCode = stripEngineExport(sources.engineSource);
 
@@ -102,6 +104,8 @@ export function buildStoryDocument(project, sources) {
   <title>${escapeHtml(title)}</title>
   <!--
 ${fontLicense}
+
+${softwareLicense}
   -->
   <style>
 ${fontCSS}
